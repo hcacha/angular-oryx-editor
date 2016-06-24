@@ -41,7 +41,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 	 * Constructor
 	 */
 	construct: function(options, stencil) {
-		
+		var self=this;		
 		ORYX.Core.UIObject.prototype.construct.apply(this, arguments);
 		//arguments.callee.$.construct.apply(this, arguments);
 		
@@ -67,26 +67,26 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 		
 		
 		//Initialization of property map and initial value.
-		this._stencil.properties().each((function(property) {
+		this._stencil.properties().forEach(function(property) {
 			var key = property.prefix() + "-" + property.id();
-			this.properties[key] = property.value();
-			this.propertiesChanged[key] = true;
-		}).bind(this));
+			self.properties[key] = property.value();
+			self.propertiesChanged[key] = true;
+		});
 		
 		// if super stencil was defined, also regard stencil's properties:
 		if (stencil._jsonStencil.superId) {
-			stencil.properties().each((function(property) {
+			stencil.properties().forEach(function(property) {
 				var key = property.prefix() + "-" + property.id();
 				var value = property.value();
 				var oldValue = this.properties[key];
-				this.properties[key] = value;
-				this.propertiesChanged[key] = true;
+				self.properties[key] = value;
+				self.propertiesChanged[key] = true;
 
 				// Raise an event, to show that the property has changed
 				// required for plugins like processLink.js
 				//window.setTimeout( function(){
 
-					this._delegateEvent({
+					self._delegateEvent({
 							type	: ORYX.CONFIG.EVENT_PROPERTY_CHANGED, 
 							name	: key, 
 							value	: value,
@@ -95,7 +95,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 
 				//}.bind(this), 10)
 
-			}).bind(this));
+			});
 		}
 
 	},
@@ -131,7 +131,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 	getChildShapes: function(deep, iterator) {
 		var result = [];
 
-		this.children.each(function(uiObject) {
+		this.children.forEach(function(uiObject) {
 			if(uiObject instanceof ORYX.Core.Shape && uiObject.isVisible ) {
 				if(iterator) {
 					iterator(uiObject);
@@ -164,7 +164,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 	getChildNodes: function(deep, iterator) {
 		var result = [];
 
-		this.children.each(function(uiObject) {
+		this.children.forEach(function(uiObject) {
 			if(uiObject instanceof ORYX.Core.Node && uiObject.isVisible) {
 				if(iterator) {
 					iterator(uiObject);
@@ -189,7 +189,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 	getChildEdges: function(deep, iterator) {
 		var result = [];
 
-		this.children.each(function(uiObject) {
+		this.children.forEach(function(uiObject) {
 			if(uiObject instanceof ORYX.Core.Edge && uiObject.isVisible) {
 				if(iterator) {
 					iterator(uiObject);
@@ -237,10 +237,10 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 			var childNodes = this.getChildNodes();
 			var childEdges = this.getChildEdges();
 			
-			[childNodes, childEdges].each(function(ne){
+			[childNodes, childEdges].forEach(function(ne){
 				var nodesAtPosition = new Hash();
 				
-				ne.each(function(node) {
+				ne.forEach(function(node) {
 					if(!node.isVisible){ return }
 					var candidates = node.getAbstractShapesAtPosition( x , y );
 					if(candidates.length > 0) {
@@ -250,7 +250,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 					}
 				});
 				
-				nodesAtPosition.keys().sort().each(function(key) {
+				nodesAtPosition.keys().sort().forEach(function(key) {
 					result = result.concat(nodesAtPosition[key]);
 				});
  			});
@@ -328,39 +328,45 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 	 * 		Properties
 	 */
 	serialize: function() {
+		var self=this;
 		var serializedObject = [];
 		
 		// Add the type
 		serializedObject.push({name: 'type', prefix:'oryx', value: this.getStencil().id(), type: 'literal'});	
 	
 		// Add hidden properties
-		this.hiddenProperties.each(function(prop){
+		this.hiddenProperties.forEach(function(prop){
 			serializedObject.push({name: prop.key.replace("oryx-", ""), prefix: "oryx", value: prop.value, type: 'literal'});
-		}.bind(this));
+		});
 		
 		// Add all properties
-		this.getStencil().properties().each((function(property){
+		this.getStencil().properties().forEach(function(property){
 			
 			var prefix = property.prefix();	// Get prefix
 			var name = property.id();		// Get name
 			
 			//if(typeof this.properties[prefix+'-'+name] == 'boolean' || this.properties[prefix+'-'+name] != "")
-				serializedObject.push({name: name, prefix: prefix, value: this.properties[prefix+'-'+name], type: 'literal'});
+				serializedObject.push({name: name, prefix: prefix, value: self.properties[prefix+'-'+name], type: 'literal'});
 
-		}).bind(this));
+		});
 		
 		return serializedObject;
 	},
 		
 		
 	deserialize: function(serialize){
+		var self=this;
 		// Search in Serialize
 		var initializedDocker = 0;
 		
 		// Sort properties so that the hidden properties are first in the list
-		serialize = serialize.sort(function(a,b){ return Number(this.properties.keys().member(a.prefix+"-"+a.name)) > Number(this.properties.keys().member(b.prefix+"-"+b.name)) ? -1 : 0 }.bind(this));
+		serialize = serialize.sort(function(a,b){
+			var firstMember= self.properties.keys().member(a.prefix+"-"+a.name);
+			var secodMember=self.properties.keys().member(b.prefix+"-"+b.name); 
+			return Number(first) > Number(secod) ? -1 : 0 
+		});
 		
-		serialize.each((function(obj){
+		serialize.forEach(function(obj){
 			
 			var name 	= obj.name;
 			var prefix 	= obj.prefix;
@@ -372,25 +378,25 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 			switch(prefix + "-" + name){
 				case 'raziel-parent': 
 							// Set parent
-							if(!this.parent) {break};
+							if(!self.parent) {break};
 							
 							// Set outgoing Shape
-							var parent = this.getCanvas().getChildShapeByResourceId(value);
+							var parent = self.getCanvas().getChildShapeByResourceId(value);
 							if(parent) {
-								parent.add(this);
+								parent.add(self);
 							}
 							
 							break;											
 				default:
 							// Set property
-							if(this.properties.keys().member(prefix+"-"+name)) {
-								this.setProperty(prefix+"-"+name, value);
+							if(self.properties.keys().member(prefix+"-"+name)) {
+								self.setProperty(prefix+"-"+name, value);
 							} else if(!(name === "bounds"||name === "parent"||name === "target"||name === "dockers"||name === "docker"||name === "outgoing"||name === "incoming")) {
-								this.setHiddenProperty(prefix+"-"+name, value);
+								self.setHiddenProperty(prefix+"-"+name, value);
 							}
 					
 			}
-		}).bind(this));
+		});
 	},
 	
 	toString: function() { return "ORYX.Core.AbstractShape " + this.id },
