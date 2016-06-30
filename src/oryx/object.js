@@ -70,10 +70,20 @@
      *  Do not mistake this method with its quasi-namesake [[Element.extend]],
      *  which implements Prototype's (much more complex) DOM extension mechanism.
      **/
-    function extend(destination, source) {
-        for (var property in source)
-            destination[property] = source[property];
+    function extend(destination, source,defaults) {
+        if (defaults) {
+            extend(destination, defaults);
+        }
+        if (destination && source && typeof source === 'object') {
+            var i, j, k;
+            for (i in source) {
+                destination[i] = source[i];
+            }           
+        }
         return destination;
+        // for (var property in source)
+        //     destination[property] = source[property];
+        // return destination;
     }
 
     /**
@@ -543,15 +553,4 @@
         isDate: isDate,
         isUndefined: isUndefined
     });
-
-    if (!Array.prototype.uniq) {
-        Array.prototype.uniq = function() {
-            return this.reduce(function(accum, current) {
-                if (accum.indexOf(current) < 0) {
-                    accum.push(current);
-                }
-                return accum;
-            }, []);
-        };
-    }
 })();

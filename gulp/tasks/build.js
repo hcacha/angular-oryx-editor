@@ -1,1 +1,1 @@
-exports.dependencies = ['build-js'];
+exports.dependencies = ['build-js','build-ts','bundle-ts'];

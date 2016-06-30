@@ -81,7 +81,7 @@ ORYX.Core.UIObject = {
 			this.isChanged = false;
 			
 			//call update of all children
-			this.children.each(function(value) {
+			this.children.forEach(function(value) {
 				value.update();
 			});
 		}
@@ -167,7 +167,7 @@ ORYX.Core.UIObject = {
 	 */
 	add: function(uiObject) {
 		//add uiObject, if it is not already a child of this object
-		if (!(this.children.member(uiObject))) {
+		if (this.children.indexOf(uiObject)==-1) {
 			//if uiObject is child of another parent, remove it from that parent.
 			if(uiObject.parent) {
 				uiObject.remove(uiObject);
@@ -201,7 +201,7 @@ ORYX.Core.UIObject = {
 	 */
 	remove: function(uiObject) {
 		//if uiObject is a child of this object, remove it.
-		if (this.children.member(uiObject)) {
+		if (this.children.indexOf(uiObject)>-1) {
 			//remove uiObject from children
 			this.children = this._uiObjects.without(uiObject);
 			
@@ -265,7 +265,7 @@ ORYX.Core.UIObject = {
 	hide: function() {
 		this.node.setAttributeNS(null, 'display', 'none');
 		this.isVisible = false;
-		this.children.each(function(uiObj) {
+		this.children.forEach(function(uiObj) {
 			uiObj.hide();	
 		});
 	},
@@ -276,7 +276,7 @@ ORYX.Core.UIObject = {
 	show: function() {
 		this.node.setAttributeNS(null, 'display', 'inherit');
 		this.isVisible = true;
-		this.children.each(function(uiObj) {
+		this.children.forEach(function(uiObj) {
 			uiObj.show();	
 		});		
 	},

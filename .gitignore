@@ -5,3 +5,5 @@ dist
 /.idea/
 .nvmrc
 tmp/
+src/**/*.js
+!src/oryx/**

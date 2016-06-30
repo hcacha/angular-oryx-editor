@@ -120,37 +120,6 @@ var $break = { };
 
 var Enumerable = (function() {
   /**
-   *  Enumerable#each(iterator[, context]) -> Enumerable
-   *  - iterator (Function): A `Function` that expects an item in the
-   *    collection as the first argument and a numerical index as the second.
-   *  - context (Object): The scope in which to call `iterator`. Affects what
-   *    the keyword `this` means inside `iterator`.
-   *
-   *  Calls `iterator` for each item in the collection.
-   *
-   *  ##### Examples
-   *
-   *      ['one', 'two', 'three'].each(alert);
-   *      // Alerts "one", then alerts "two", then alerts "three"
-   *
-   *  ##### Built-In Variants
-   *
-   *  Most of the common use cases for `each` are already available pre-coded
-   *  as other methods on [[Enumerable]]. Whether you want to find the first
-   *  matching item in an enumeration, or transform it, or determine whether it
-   *  has any (or all) values matching a particular condition, [[Enumerable]]
-   *  has a method to do that for you.
-  **/
-  function each(iterator, context) {
-    try {
-      this._each(iterator, context);
-    } catch (e) {
-      if (e != $break) throw e;
-    }
-    return this;
-  }
-
-  /**
    *  Enumerable#eachSlice(number[, iterator = Prototype.K[, context]]) -> Enumerable
    *  - number (Number): The number of items to include in each slice.
    *  - iterator (Function): An optional function to use to transform each
@@ -185,77 +154,6 @@ var Enumerable = (function() {
       slices.push(array.slice(index, index+number));
     return slices.collect(iterator, context);
   }
-
-  /**
-   *  Enumerable#all([iterator = Prototype.K[, context]]) -> Boolean
-   *  - iterator (Function): An optional function to use to evaluate
-   *    each element in the enumeration; the function should return the value to
-   *    test. If this is not provided, the element itself is tested.
-   *  - context (Object): An optional object to use as `this` within
-   *    calls to the iterator.
-   *
-   *  Determines whether all the elements are "truthy" (boolean-equivalent to
-   *  `true`), either directly or through computation by the provided iterator.
-   *  Stops on the first falsy element found (e.g., the first element that
-   *  is boolean-equivalent to `false`, such as `undefined`, `0`, or indeed
-   *  `false`);
-   *
-   *  ##### Examples
-   *
-   *      [].all();
-   *      // -> true (empty arrays have no elements that could be falsy)
-   *
-   *      $R(1, 5).all();
-   *      // -> true (all values in [1..5] are truthy)
-   *
-   *      [0, 1, 2].all();
-   *      // -> false (with only one loop cycle: 0 is falsy)
-   *
-   *      [9, 10, 15].all(function(n) { return n >= 10; });
-   *      // -> false (the iterator returns false on 9)
-  **/
-  function all(iterator, context) {
-    iterator = iterator || Prototype.K;
-    var result = true;
-    this.each(function(value, index) {
-      result = result && !!iterator.call(context, value, index, this);
-      if (!result) throw $break;
-    }, this);
-    return result;
-  }
-
-  /**
-   *  Enumerable#any([iterator = Prototype.K[, context]]) -> Boolean
-   *  - iterator (Function): An optional function to use to evaluate each
-   *    element in the enumeration; the function should return the value to
-   *    test. If this is not provided, the element itself is tested.
-   *  - context (Object): An optional object to use as `this` within
-   *    calls to the iterator.
-   *
-   *  Determines whether at least one element is truthy (boolean-equivalent to
-   *  `true`), either directly or through computation by the provided iterator.
-   *
-   *  ##### Examples
-   *
-   *      [].any();
-   *      // -> false (empty arrays have no elements that could be truthy)
-   *
-   *      $R(0, 2).any();
-   *      // -> true (on the second loop, 1 is truthy)
-   *
-   *      [2, 4, 6, 8, 10].any(function(n) { return n > 5; });
-   *      // -> true (the iterator will return true on 6)
-  **/
-  function any(iterator, context) {
-    iterator = iterator || Prototype.K;
-    var result = false;
-    this.each(function(value, index) {
-      if (result = !!iterator.call(context, value, index, this))
-        throw $break;
-    }, this);
-    return result;
-  }
-
   /**
    *  Enumerable#collect([iterator = Prototype.K[, context]]) -> Array
    *  - iterator (Function): The iterator function to apply to each element
@@ -282,61 +180,11 @@ var Enumerable = (function() {
   function collect(iterator, context) {
     iterator = iterator || Prototype.K;
     var results = [];
-    this.each(function(value, index) {
+    this._each(function(value, index) {
       results.push(iterator.call(context, value, index, this));
     }, this);
     return results;
   }
-
-  /**
-   *  Enumerable#detect(iterator[, context]) -> firstElement | undefined
-   *  - iterator (Function): The iterator function to apply to each element
-   *    in the enumeration.
-   *  - context (Object): An optional object to use as `this` within
-   *    calls to the iterator.
-   *
-   *  Returns the first element for which the iterator returns a truthy value.
-   *  Aliased by the [[Enumerable#find]] method.
-   *
-   *  ##### Example
-   *
-   *      [1, 7, -2, -4, 5].detect(function(n) { return n < 0; });
-   *      // -> -2
-  **/
-  function detect(iterator, context) {
-    var result;
-    this.each(function(value, index) {
-      if (iterator.call(context, value, index, this)) {
-        result = value;
-        throw $break;
-      }
-    }, this);
-    return result;
-  }
-
-  /**
-   *  Enumerable#findAll(iterator[, context]) -> Array
-   *  - iterator (Function): An iterator function to use to test the elements.
-   *  - context (Object): An optional object to use as `this` within
-   *    calls to the iterator.
-   *
-   *  Returns all the elements for which the iterator returned a truthy value.
-   *  For the opposite operation, see [[Enumerable#reject]].
-   *
-   *  ##### Example
-   *
-   *      [1, 'two', 3, 'four', 5].findAll(Object.isString);
-   *      // -> ['two', 'four']
-  **/
-  function findAll(iterator, context) {
-    var results = [];
-    this.each(function(value, index) {
-      if (iterator.call(context, value, index, this))
-        results.push(value);
-    }, this);
-    return results;
-  }
-
   /**
    *  Enumerable#grep(filter[, iterator = Prototype.K[, context]]) -> Array
    *  - filter (RegExp | String | Object): The filter to apply to elements. This
@@ -375,7 +223,7 @@ var Enumerable = (function() {
     if (Object.isString(filter))
       filter = new RegExp(RegExp.escape(filter));
 
-    this.each(function(value, index) {
+    this._each(function(value, index) {
       if (filter.match(value))
         results.push(iterator.call(context, value, index, this));
     }, this);
@@ -406,7 +254,7 @@ var Enumerable = (function() {
       return true;
 
     var found = false;
-    this.each(function(value) {
+    this._each(function(value) {
       if (value == object) {
         found = true;
         throw $break;
@@ -414,41 +262,7 @@ var Enumerable = (function() {
     });
     return found;
   }
-
-  /**
-   *  Enumerable#inGroupsOf(number[, fillWith = null]) -> [group...]
-   *  - number (Number): The number of items to include in each group.
-   *  - fillWith (Object): An optional filler to use if the last group needs
-   *    any; defaults to `null`.
-   *
-   *  Like [[Enumerable#eachSlice]], but pads out the last chunk with the
-   *  specified value if necessary and doesn't support the `iterator` function.
-   *
-   *  ##### Examples
-   *
-   *      var students = [
-   *        { name: 'Sunny',  age: 20 },
-   *        { name: 'Audrey', age: 21 },
-   *        { name: 'Matt',   age: 20 },
-   *        { name: 'Amelie', age: 26 },
-   *        { name: 'Will',   age: 21 }
-   *      ];
-   *
-   *      students.inGroupsOf(2, { name: '', age: 0 });
-   *      // -> [
-   *      //      [{ name: 'Sunny', age: 20 }, { name: 'Audrey', age: 21 }],
-   *      //      [{ name: 'Matt', age: 20 },  { name: 'Amelie', age: 26 }],
-   *      //      [{ name: 'Will', age: 21 },  { name: '', age: 0 }]
-   *      //    ]
-  **/
-  function inGroupsOf(number, fillWith) {
-    fillWith = Object.isUndefined(fillWith) ? null : fillWith;
-    return this.eachSlice(number, function(slice) {
-      while(slice.length < number) slice.push(fillWith);
-      return slice;
-    });
-  }
-
+ 
   /**
    *  Enumerable#inject(accumulator, iterator[, context]) -> accumulatedValue
    *  - accumulator (?): The initial value to which the `iterator` adds.
@@ -480,7 +294,7 @@ var Enumerable = (function() {
    *      // -> 'ace'
   **/
   function inject(memo, iterator, context) {
-    this.each(function(value, index) {
+    this._each(function(value, index) {
       memo = iterator.call(context, memo, value, index, this);
     }, this);
     return memo;
@@ -507,7 +321,8 @@ var Enumerable = (function() {
    *      // returns an array of the element references.
   **/
   function invoke(method) {
-    var args = $A(arguments).slice(1);
+    var args=Array.prototype.slice.call(arguments, 1);
+    //var args = arguments.slice(1);
     return this.map(function(value) {
       return value[method].apply(value, args);
     });
@@ -545,7 +360,7 @@ var Enumerable = (function() {
   function max(iterator, context) {
     iterator = iterator || Prototype.K;
     var result;
-    this.each(function(value, index) {
+    this._each(function(value, index) {
       value = iterator.call(context, value, index, this);
       if (result == null || value >= result)
         result = value;
@@ -645,7 +460,7 @@ var Enumerable = (function() {
   **/
   function pluck(property) {
     var results = [];
-    this.each(function(value) {
+    this._each(function(value) {
       results.push(value[property]);
     });
     return results;
@@ -757,16 +572,16 @@ var Enumerable = (function() {
    *      });
    *      // -> ['Jane Doe is 23', 'Nitin Patel is 41', 'Guy Forcier is 17']
   **/
-  function zip() {
-    var iterator = Prototype.K, args = $A(arguments);
-    if (Object.isFunction(args.last()))
-      iterator = args.pop();
+  // function zip() {
+  //   var iterator = Prototype.K, args = $A(arguments);
+  //   if (Object.isFunction(args.last()))
+  //     iterator = args.pop();
 
-    var collections = [this].concat(args).map($A);
-    return this.map(function(value, index) {
-      return iterator(collections.pluck(index));
-    });
-  }
+  //   var collections = [this].concat(args).map($A);
+  //   return this.map(function(value, index) {
+  //     return iterator(collections.pluck(index));
+  //   });
+  // }
 
   /**
    *  Enumerable#size() -> Number
@@ -786,68 +601,16 @@ var Enumerable = (function() {
     return '#<Enumerable:' + this.toArray().inspect() + '>';
   }
 
-  /** alias of: Enumerable#collect
-   *  Enumerable#map([iterator = Prototype.K[, context]]) -> Array
-  **/
-
-  /** alias of: Enumerable#any
-   *  Enumerable#some([iterator = Prototype.K[, context]]) -> Boolean
-  **/
-
-  /** alias of: Enumerable#all
-   *  Enumerable#every([iterator = Prototype.K[, context]]) -> Boolean
-  **/
-
-  /** alias of: Enumerable#findAll
-   *  Enumerable#select(iterator[, context]) -> Array
-  **/
-
-  /** alias of: Enumerable#findAll
-   *  Enumerable#filter(iterator[, context]) -> Array
-  **/
-
-  /** alias of: Enumerable#include
-   *  Enumerable#member(object) -> Boolean
-  **/
-
-  /** alias of: Enumerable#toArray
-   *  Enumerable#entries() -> Array
-  **/
-
-  /** alias of: Enumerable#detect
-   *  Enumerable#find(iterator[, context]) -> firstElement | undefined
-  **/
-
   return {
-    each:       each,
     eachSlice:  eachSlice,
-    all:        all,
-    every:      all,
-    any:        any,
-    some:       any,
-    collect:    collect,
-    map:        collect,
-    detect:     detect,
-    findAll:    findAll,
-    select:     findAll,
-    filter:     findAll,
     grep:       grep,
     include:    include,
-    member:     include,
-    inGroupsOf: inGroupsOf,
     inject:     inject,
     invoke:     invoke,
     max:        max,
     min:        min,
     partition:  partition,
     pluck:      pluck,
-    reject:     reject,
-    sortBy:     sortBy,
-    toArray:    toArray,
-    entries:    toArray,
-    zip:        zip,
-    size:       size,
-    inspect:    inspect,
-    find:       detect
+    inspect:    inspect    
   };
 })();

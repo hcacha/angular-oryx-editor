@@ -101,12 +101,18 @@ ORYX.Editor = {
 	zoomLevel:1.0,
 
 	defaults:{
-		createCanvasWrapper:true
+		createCanvasWrapper:true,
+		isGenerateGUI:true,
+		enableMakeExtModalWindowKeysave:true,
+		enableLoadContentModel:true,
+		enableLoadPlugins:true,
 	},
 
 	construct: function(config,options) {
+		var self=this;
 		// initialization.
 		Object.extend(this.defaults,options);		
+
 		this._eventsQueue 	= [];
 		this.loadedPlugins 	= [];
 		this.pluginsData 	= [];
@@ -114,14 +120,11 @@ ORYX.Editor = {
 		
 		//meta data about the model for the signavio warehouse
 		//directory, new, name, description, revision, model (the model data)
-		
-		this.modelMetaData = config;
-		
+		this.modelMetaData = config;		
 		var model = config;
 		if(config.model) {
 			model = config.model;
-		}
-		
+		}		
 		this.id = model.resourceId;
         if(!this.id) {
         	this.id = model.id;
@@ -129,6 +132,7 @@ ORYX.Editor = {
         		this.id = ORYX.Editor.provideId();
         	}
         }
+		
         
         // Defines if the editor should be fullscreen or not
 		this.fullscreen = model.fullscreen || true;
@@ -153,44 +157,49 @@ ORYX.Editor = {
         
         //Load predefined StencilSetExtensions
         if(!!ORYX.CONFIG.SSEXTS){
-        	ORYX.CONFIG.SSEXTS.each(function(ssext){
-                this.loadSSExtension(ssext.namespace);
-            }.bind(this));
+        	ORYX.CONFIG.SSEXTS.forEach(function(ssext){
+                self.loadSSExtension(ssext.namespace);
+            });
         }
 
 		// CREATES the canvas
 		this._createCanvas(model.stencil ? model.stencil.id : null, model.properties);
 
-		// GENERATES the whole EXT.VIEWPORT
-		this._generateGUI();
-
+		// GENERATES the whole EXT.VIEWPORT		
+		if(this.defaults.isGenerateGUI){
+			this._generateGUI();			
+		}
 		// Initializing of a callback to check loading ends
 		var loadPluginFinished 	= false;
 		var loadContentFinished = false;
 		var initFinished = function(){	
 			if( !loadPluginFinished || !loadContentFinished ){ return }
-			this._finishedLoading();
-		}.bind(this)
+			self._finishedLoading();
+		};
 		
 		// disable key events when Ext modal window is active
-		ORYX.Editor.makeExtModalWindowKeysave(this._getPluginFacade());
+		if(self.defaults.enableMakeExtModalWindowKeysave){
+			ORYX.Editor.makeExtModalWindowKeysave(this._getPluginFacade());			
+		}
 		
 		// LOAD the plugins
-		window.setTimeout(function(){
-			this.loadPlugins();
-			loadPluginFinished = true;
-			initFinished();
-		}.bind(this), 100);
-
+		if(self.defaults.enableLoadPlugins){
+			window.setTimeout(function(){
+				self.loadPlugins();
+				loadPluginFinished = true;
+				initFinished();
+			}, 100);
+		}
 		// LOAD the content of the current editor instance
-		window.setTimeout(function(){
-            this.loadSerialized(model);
-            this.getCanvas().update();
-			loadContentFinished = true;
-			initFinished();
-		}.bind(this), 200);
+		if(self.defaults.enableLoadContentModel){
+			window.setTimeout(function(){
+				self.loadSerialized(model);
+				self.getCanvas().update();
+				loadContentFinished = true;
+				initFinished();
+			}, 200);
+		}
 	},
-	
 	_finishedLoading: function() {
 		if(Ext.getCmp('oryx-loading-panel')){
 			Ext.getCmp('oryx-loading-panel').hide()
@@ -497,17 +506,17 @@ ORYX.Editor = {
 	},
 	
 
-	getAvailablePlugins: function(){
+	getAvailablePlugins: function(){		
 		var curAvailablePlugins=ORYX.availablePlugins.clone();
-		curAvailablePlugins.each(function(plugin){
-			if(this.loadedPlugins.find(function(loadedPlugin){
-				return loadedPlugin.type==this.name;
-			}.bind(plugin))){
-				plugin.engaged=true;
-			}else{
-				plugin.engaged=false;
-			}
-			}.bind(this));
+		curAvailablePlugins.forEach(function(plugin){			
+				if(self.loadedPlugins.find(function(loadedPlugin){
+					return loadedPlugin.type==self.name;
+				})){
+					plugin.engaged=true;
+				}else{
+					plugin.engaged=false;
+				}
+			});
 		return curAvailablePlugins;
 	},
 
@@ -564,10 +573,10 @@ ORYX.Editor = {
 							if (newPlugin.onSelectionChanged) 
 								me.registerOnEvent(ORYX.CONFIG.EVENT_SELECTION_CHANGED, newPlugin.onSelectionChanged.bind(newPlugin));
 							this.loadedPlugins.push(newPlugin);
-							this.loadedPlugins.each(function(loaded){
+							this.loadedPlugins.forEach(function(loaded){
 								if(loaded.registryChanged)
-									loaded.registryChanged(this.pluginsData);
-							}.bind(me));
+									loaded.registryChanged(me.pluginsData);
+							});
 							callback(true);
 						
 					} catch(e) {
@@ -628,15 +637,15 @@ ORYX.Editor = {
 									})
 			
 			// Add those plugins to the list, which are only in the loadablePlugins list
-			ORYX.MashupAPI.loadablePlugins.each(function( className ){
-				if( !(ORYX.availablePlugins.find(function(val){ return val.name == className }))){
+			ORYX.MashupAPI.loadablePlugins.forEach(function( className ){
+				if( !(ORYX.availablePlugins.filter(function(val){ return val.name == className }))){
 					ORYX.availablePlugins.push( {name: className } );
 				}
 			})
 		}
 		
 		
-		ORYX.availablePlugins.each(function(value) {
+		ORYX.availablePlugins.forEach(function(value) {
 			ORYX.Log.debug("Initializing plugin '%0'", value.name);
 				if( (!value.requires 	|| !value.requires.namespaces 	|| value.requires.namespaces.any(function(req){ return loadedStencilSetsNamespaces.indexOf(req) >= 0 }) ) &&
 					(!value.notUsesIn 	|| !value.notUsesIn.namespaces 	|| !value.notUsesIn.namespaces.any(function(req){ return loadedStencilSetsNamespaces.indexOf(req) >= 0 }) )&&
@@ -664,7 +673,7 @@ ORYX.Editor = {
 			
 		});
 
-		newPlugins.each(function(value) {
+		newPlugins.forEach(function(value) {
 			// If there is an GUI-Plugin, they get all Plugins-Offer-Meta-Data
 			if(value.registryChanged)
 				value.registryChanged(me.pluginsData);
@@ -677,7 +686,7 @@ ORYX.Editor = {
 		this.loadedPlugins = newPlugins;
 		
 		// Hack for the Scrollbars
-		if(Ext.isMac) {
+		if(navigator.platform.indexOf('Mac') > -1) {
 			ORYX.Editor.resizeFix();
 		}
 		
@@ -749,7 +758,7 @@ ORYX.Editor = {
           // Migrate canvasConfig to an RDF-like structure
           //FIXME this isn't nice at all because we don't want rdf any longer
           var properties = [];
-          for(field in canvasConfig){
+          for(var field in canvasConfig){
             properties.push({
               prefix: 'oryx',
               name: field,
@@ -833,7 +842,7 @@ ORYX.Editor = {
 			});
 			
 			// Execute every command
-			commands.each(function(command){
+			commands.forEach(function(command){
 				command.execute();
 			})
 			
@@ -925,59 +934,59 @@ ORYX.Editor = {
 				this.loadSerialized = loadSerializedCB;
 			},			
 			execute: function(){
-				
-				if (!this.shapes) {
-					// Import the shapes out of the serialization		
-					this.shapes	= this.loadSerialized( this.jsonObject );		
+					var self=this;
 					
-					//store all connections
-					this.shapes.each(function(shape) {
+					if (!this.shapes) {
+						// Import the shapes out of the serialization		
+						this.shapes	= this.loadSerialized(this.jsonObject);		
 						
-						if (shape.getDockers) {
-							var dockers = shape.getDockers();
-							if (dockers) {
-								if (dockers.length > 0) {
-									this.connections.push([dockers.first(), dockers.first().getDockedShape(), dockers.first().referencePoint]);
+						//store all connections
+						this.shapes.forEach(function(shape) {							
+							if (shape.getDockers) {
+								var dockers = shape.getDockers();
+								if (dockers) {
+									if (dockers.length > 0) {
+										self.connections.push([dockers[0], dockers[0].getDockedShape(), dockers[0].referencePoint]);
+									}
+									if (dockers.length > 1) {
+										self.connections.push([dockers[dockers.length-1], dockers[dockers.length-1].getDockedShape(), dockers[dockers.length-1].referencePoint]);
+									}
 								}
-								if (dockers.length > 1) {
-									this.connections.push([dockers.last(), dockers.last().getDockedShape(), dockers.last().referencePoint]);
-								}
-							}
-						}
+							}							
+							//store parents
+							self.parents[shape.id] = shape.parent;
+						});
+					} else {
+						this.shapes.forEach(function(shape) {
+							self.parents[shape.id].add(shape);
+						});
 						
-						//store parents
-						this.parents[shape.id] = shape.parent;
-					}.bind(this));
-				} else {
-					this.shapes.each(function(shape) {
-						this.parents[shape.id].add(shape);
-					}.bind(this));
-					
-					this.connections.each(function(con) {
-						con[0].setDockedShape(con[1]);
-						con[0].setReferencePoint(con[2]);
-						//con[0].update();
-					});
-				}
+						this.connections.forEach(function(con) {
+							con[0].setDockedShape(con[1]);
+							con[0].setReferencePoint(con[2]);
+							//con[0].update();
+						});
+					}
 				
-				//this.parents.values().uniq().invoke("update");
-				this.facade.getCanvas().update();
-					
-				if(!this.noSelection)
-					this.facade.setSelection(this.shapes);
-				else
-					this.facade.updateSelection();
+					//this.parents.values().uniq().invoke("update");
+					this.facade.getCanvas().update();
+						
+					if(!this.noSelection)
+						this.facade.setSelection(this.shapes);
+					else
+						this.facade.updateSelection();
 				},
 				rollback: function(){
+					var self=this;
 					var selection = this.facade.getSelection();
 					
-					this.shapes.each(function(shape) {
+					this.shapes.forEach(function(shape) {
 						selection = selection.without(shape);
-						this.facade.deleteShape(shape);
-					}.bind(this));
+						self.facade.deleteShape(shape);
+					});
 					
 					/*this.parents.values().uniq().each(function(parent) {
-						if(!this.shapes.member(parent))
+						if(!this.shapes.some(parent))
 							parent.update();
 					}.bind(this));*/
 					
@@ -1032,7 +1041,7 @@ ORYX.Editor = {
         var resourceIds = collectResourceIds(jsonObject.childShapes);
         
         // Replace each resource id by a new one
-        resourceIds.each(function(oldResourceId){
+        resourceIds.forEach(function(oldResourceId){
             var newResourceId = ORYX.Editor.provideId();
             serJsonObject = serJsonObject.gsub('"'+oldResourceId+'"', '"'+newResourceId+'"')
         });
@@ -1152,10 +1161,10 @@ ORYX.Editor = {
         var shapes = this.getCanvas().addShapeObjects(model.childShapes, this.handleEvents.bind(this));
         
         if(model.properties) {
-        	for(key in model.properties) {
+        	for(var key in model.properties) {
         		var prop = model.properties[key];
         		if (!(typeof prop === "string")) {
-        			prop = Ext.encode(prop);
+        			prop = JSON.stringify(prop);
         		}
             	this.getCanvas().setProperty("oryx-" + key, prop);
             }
@@ -1171,11 +1180,12 @@ ORYX.Editor = {
      * @param {Array} ss_extension_namespaces An array of stencil set extension namespaces.
      */
     loadSSExtensions: function(ss_extension_namespaces){
+		var self=this;
         if(!ss_extension_namespaces) return;
 
-        ss_extension_namespaces.each(function(ss_extension_namespace){
-            this.loadSSExtension(ss_extension_namespace);
-        }.bind(this));
+        ss_extension_namespaces.forEach(function(ss_extension_namespace){
+            self.loadSSExtension(ss_extension_namespace);
+        });
     },
 	
 	/**
@@ -1218,7 +1228,7 @@ ORYX.Editor = {
 		if(eventType == ORYX.CONFIG.EVENT_KEYUP) {
 			this._keyupEnabled = false;
 		}
-		if(this.DOMEventListeners.keys().member(eventType)) {
+		if(this.DOMEventListeners.keys().indexOf(eventType)>-1) {
 			var value = this.DOMEventListeners.remove(eventType);
 			this.DOMEventListeners['disable_' + eventType] = value;
 		}
@@ -1233,7 +1243,7 @@ ORYX.Editor = {
 			this._keyupEnabled = true;
 		}
 		
-		if(this.DOMEventListeners.keys().member("disable_" + eventType)) {
+		if(this.DOMEventListeners.keys().indexOf("disable_" + eventType)>-1) {
 			var value = this.DOMEventListeners.remove("disable_" + eventType);
 			this.DOMEventListeners[eventType] = value;
 		}
@@ -1243,7 +1253,7 @@ ORYX.Editor = {
 	 *  Methods for the PluginFacade
 	 */
 	registerOnEvent: function(eventType, callback) {
-		if(!(this.DOMEventListeners.keys().member(eventType))) {
+		if(this.DOMEventListeners.keys().indexOf(eventType)==-1) {
 			this.DOMEventListeners[eventType] = [];
 		}
 
@@ -1251,7 +1261,7 @@ ORYX.Editor = {
 	},
 
 	unregisterOnEvent: function(eventType, callback) {
-		if(this.DOMEventListeners.keys().member(eventType)) {
+		if(this.DOMEventListeners.keys().indexOf(eventType)>-1) {
 			this.DOMEventListeners[eventType] = this.DOMEventListeners[eventType].without(callback);
 		} else {
 			// Event is not supported
@@ -1281,7 +1291,7 @@ ORYX.Editor = {
 	},
 
 	offer: function(pluginData) {
-		if(!this.pluginsData.member(pluginData)){
+		if(this.pluginsData.indexOf(pluginData)==-1){
 			this.pluginsData.push(pluginData);
 		}
 	},
@@ -1295,11 +1305,12 @@ ORYX.Editor = {
 	 * 		key.event[.metactrl][.alt][.shift].'thekeyCode'
 	 */
 	registerPluginsOnKeyEvents: function() {
-		this.pluginsData.each(function(pluginData) {
+		var self=this;
+		this.pluginsData.forEach(function(pluginData) {
 			
 			if(pluginData.keyCodes) {
 				
-				pluginData.keyCodes.each(function(keyComb) {
+				pluginData.keyCodes.forEach(function(keyComb) {
 					var eventName = "key.event";
 					
 					/* Include key action */
@@ -1332,24 +1343,24 @@ ORYX.Editor = {
 					
 					/* Register the event */
 					ORYX.Log.debug("Register Plugin on Key Event: %0", eventName);
-					this.registerOnEvent(eventName,pluginData.functionality);
+					self.registerOnEvent(eventName,pluginData.functionality);
 				
-				}.bind(this));
+				});
 			}
-		}.bind(this));
+		});
 	},
 
 	setSelection: function(elements, subSelectionElement, force) {
 		
 		if (!elements) { elements = [] }
 		
-		elements = elements.compact().findAll(function(n){ return n instanceof ORYX.Core.Shape });
+		elements = elements.filter(function(n){ return n instanceof ORYX.Core.Shape });
 		
-		if (elements.first() instanceof ORYX.Core.Canvas) {
+		if (elements.length && elements[0] instanceof ORYX.Core.Canvas) {
 			elements = [];
 		}
 		
-		if (!force && elements.length === this.selection.length && this.selection.all(function(r){ return elements.include(r) })){
+		if (!force && elements.length === this.selection.length && this.selection.filter(function(r){ return elements.include(r) })){
 			return;
 		}
 		
@@ -1448,13 +1459,13 @@ ORYX.Editor = {
 			con = new ORYX.Core.Edge({'eventHandlerCallback':this.handleEvents.bind(this)}, sset.stencil(option.connectingType));
 			
 			// And both endings dockers will be referenced to the both shapes
-			con.dockers.first().setDockedShape(option.connectedShape);
+			con.dockers[0].setDockedShape(option.connectedShape);
 			
 			var magnet = option.connectedShape.getDefaultMagnet()
 			var cPoint = magnet ? magnet.bounds.center() : option.connectedShape.bounds.midPoint();
-			con.dockers.first().setReferencePoint( cPoint );
-			con.dockers.last().setDockedShape(newShapeObject);
-			con.dockers.last().setReferencePoint(newShapeObject.getDefaultMagnet().bounds.center());		
+			con.dockers[0].setReferencePoint( cPoint );
+			con.dockers[dockers.length-1].setDockedShape(newShapeObject);
+			con.dockers[dockers.length-1].setReferencePoint(newShapeObject.getDefaultMagnet().bounds.center());		
 			
 			// The Edge will be added to the canvas and be updated
 			canvas.add(con);	
@@ -1465,20 +1476,20 @@ ORYX.Editor = {
 		// Move the new Shape to the position
 		if(newShapeObject instanceof ORYX.Core.Edge && option.connectedShape) {
 
-			newShapeObject.dockers.first().setDockedShape(option.connectedShape);
+			newShapeObject.dockers[0].setDockedShape(option.connectedShape);
 			
 			if( option.connectedShape instanceof ORYX.Core.Node ){
-				newShapeObject.dockers.first().setReferencePoint(option.connectedShape.getDefaultMagnet().bounds.center());					
-				newShapeObject.dockers.last().bounds.centerMoveTo(point);			
+				newShapeObject.dockers[0].setReferencePoint(option.connectedShape.getDefaultMagnet().bounds.center());					
+				newShapeObject.dockers[dockers.length-1].bounds.centerMoveTo(point);			
 			} else {
-				newShapeObject.dockers.first().setReferencePoint(option.connectedShape.bounds.midPoint());								
+				newShapeObject.dockers[0].setReferencePoint(option.connectedShape.bounds.midPoint());								
 			}
 
 		} else {
 			
 			var b = newShapeObject.bounds
 			if( newShapeObject instanceof ORYX.Core.Node && newShapeObject.dockers.length == 1){
-				b = newShapeObject.dockers.first().bounds
+				b = newShapeObject.dockers[0].bounds
 			}
 			
 			b.centerMoveTo(point);
@@ -1520,23 +1531,24 @@ ORYX.Editor = {
 		shape.parent.remove(shape);
 		
 		//delete references to outgoing edges
-		shape.getOutgoingShapes().each(function(os) {
-			var docker = os.getDockers().first();
+		shape.getOutgoingShapes().forEach(function(os) {
+			var docker = os.getDockers()[0];
 			if(docker && docker.getDockedShape() == shape) {
 				docker.setDockedShape(undefined);
 			}
 		});
 		
 		//delete references to incoming edges
-		shape.getIncomingShapes().each(function(is) {
-			var docker = is.getDockers().last();
+		shape.getIncomingShapes().forEach(function(is) {
+			var dockers=is.getDockers();
+			var docker = dockers && dockers.length? dockers[dockers.length-1]:null;
 			if(docker && docker.getDockedShape() == shape) {
 				docker.setDockedShape(undefined);
 			}
 		});
 		
 		//delete references of the shape's dockers
-		shape.getDockers().each(function(docker) {
+		shape.getDockers().forEach(function(docker) {
 			docker.setDockedShape(undefined);
 		});
 	},
@@ -1560,10 +1572,10 @@ ORYX.Editor = {
 	* scheduled in the _eventsQueue. Needed to handle Layout-Callbacks.
 	*/
 	_executeEventImmediately: function(eventObj) {
-		if(this.DOMEventListeners.keys().member(eventObj.event.type)) {
-			this.DOMEventListeners[eventObj.event.type].each((function(value) {
+		if(this.DOMEventListeners.keys().indexOf(eventObj.event.type)!=-1) {
+			this.DOMEventListeners[eventObj.event.type].forEach(function(value) {
 				value(eventObj.event, eventObj.arg);		
-			}).bind(this));
+			});
 		}
 	},
 
@@ -1738,7 +1750,7 @@ ORYX.Editor = {
 			(elementController !== undefined) && (elementController.isMovable);
 		var modifierKeyPressed = event.shiftKey || event.ctrlKey;
 		var noObjectsSelected = this.selection.length === 0;
-		var currentIsSelected = this.selection.member(elementController);
+		var currentIsSelected = this.selection.indexOf(elementController)>-1;
 
 
 		// Rule #1: When there is nothing selected, select the clicked object.
@@ -2010,7 +2022,7 @@ ORYX.Editor.Cookie = {
 	},
 	
 	start: function( interval ){
-		
+		var self=this;
 		if( this.pe ){
 			return;
 		}
@@ -2021,10 +2033,10 @@ ORYX.Editor.Cookie = {
 			
 			if( currentString != document.cookie ){
 				currentString = document.cookie;
-				this.callbacks.each(function(callback){ callback(this.getParams()) }.bind(this));
+				this.callbacks.forEach(function(callback){ callback(self.getParams()) });
 			}
 			
-		}.bind(this), ( interval || 10000 ) / 1000);	
+		}, ( interval || 10000 ) / 1000);	
 	},
 	
 	stop: function(){
@@ -2039,7 +2051,7 @@ ORYX.Editor.Cookie = {
 		var res = {};
 		
 		var p = document.cookie;
-		p.split("; ").each(function(param){ res[param.split("=")[0]] = param.split("=")[1];});
+		p.split("; ").forEach(function(param){ res[param.split("=")[0]] = param.split("=")[1];});
 		
 		return res;
 	},	

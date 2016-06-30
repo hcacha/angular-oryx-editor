@@ -173,17 +173,18 @@ ORYX.Core.StencilSet.loadStencilSet = function(url, editorId,stencilSetData) {
  * according to navigator.language
  */
 ORYX.Core.StencilSet.getTranslation = function(jsonObject, name) {
-	var lang = ORYX.I18N.Language.toLowerCase();
+	if(ORYX.I18N && ORYX.I18N.Language){
+		var lang = ORYX.I18N.Language.toLowerCase();
 	
-	var result = jsonObject[name + "_" + lang];
-	
-	if(result)
-		return result;
+		var result = jsonObject[name + "_" + lang];
 		
-	result = jsonObject[name + "_" + lang.substr(0, 2)];
-	
-	if(result)
-		return result;
+		if(result)
+			return result;
+			
+		result = jsonObject[name + "_" + lang.substr(0, 2)];
 		
+		if(result)
+			return result;
+	}	
 	return jsonObject[name];
 };

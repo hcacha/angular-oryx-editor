@@ -130,30 +130,33 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		this.node.setAttributeNS(null, 'font-size', ORYX.CONFIG.LABEL_DEFAULT_LINE_HEIGHT);
 			
 		this.bounds.set(0,0,options.width, options.height);
-		
-		this.addEventHandlers(this.rootNode.parentNode);
-		
+		if(this.rootNode.parentNode){
+			this.addEventHandlers(this.rootNode.parentNode);
+		}
 		//disable context menu
 		this.rootNode.oncontextmenu = function() {return false;};
 	},
 	
-	focus: function(){
-		
+	focus: function(){		
 		// Get a href
 		if (!this.headerA){
-			this.headerA = Ext.get("oryx_editor_header").child("a").dom
-		}
-		
+			var headerEditor=document.getElementById("oryx_editor_header");
+			if(!headerEditor) return;
+			var elA=headerEditor.getElementsByTagName("a");
+			if(!elA || elA.length<=0) return;
+			this.headerA=elA.firstChild.dom;
+			//this.headerA = Ext.get("oryx_editor_header").child("a").dom
+		}		
 		// Focus it and blurs it
-		this.headerA.focus();
-		this.headerA.blur();
+		if(this.headerA.focus) this.headerA.focus(); 
+		if(this.headerA.blur) this.headerA.blur();;		
 	},
 	
 	update: function() {
-		
-		this.nodes.each(function(node) {
-			this._traverseForUpdate(node);
-		}.bind(this));
+		var self=this;
+		this.nodes.forEach(function(node) {
+			self._traverseForUpdate(node);
+		});
 		
 		// call stencil's layout callback
 		// (needed for row layouting of xforms)
@@ -162,17 +165,17 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		var layoutEvents = this.getStencil().layout();
 		
 		if(layoutEvents) {
-			layoutEvents.each(function(event) {
+			layoutEvents.forEach(function(event) {
 		
 				// setup additional attributes
-				event.shape = this;
+				event.shape = self;
 				event.forceExecution = true;
-				event.target = this.rootNode;
+				event.target = self.rootNode;
 				
 				// do layouting
 				
-				this._delegateEvent(event);
-			}.bind(this))
+				self._delegateEvent(event);
+			})
 		}
 		
 		this.nodes.invoke("_update");
@@ -185,12 +188,13 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	},
 	
 	_traverseForUpdate: function(shape) {
+		var self=this;
 		var childRet = shape.isChanged;
 		shape.getChildNodes(false, function(child) {
-			if(this._traverseForUpdate(child)) {
+			if(self._traverseForUpdate(child)) {
 				childRet = true;
 			}
-		}.bind(this));
+		});
 		
 		if(childRet) {
 			shape.layout();
@@ -216,7 +220,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			return this.nodes.clone();
 		} else {
 			var result = [];
-			this.nodes.each(function(uiObject) {
+			this.nodes.forEach(function(uiObject) {
 				if(iterator) {
 					iterator(uiObject);
 				}
@@ -252,7 +256,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	add: function(uiObject) {
 		//if uiObject is child of another UIObject, remove it.
 		if(uiObject instanceof ORYX.Core.UIObject) {
-			if (!(this.children.member(uiObject))) {
+			if (this.children.indexOf(uiObject)==-1) {
 				//if uiObject is child of another parent, remove it from that parent.
 				if(uiObject.parent) {
 					uiObject.parent.remove(uiObject);
@@ -267,7 +271,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 				//add uiObject.node to this.node depending on the type of uiObject
 				if(uiObject instanceof ORYX.Core.Shape) {
 					if(uiObject instanceof ORYX.Core.Edge) {
-						uiObject.addMarkers(this.rootNode.getElementsByTagNameNS(NAMESPACE_SVG, "defs")[0]);
+						uiObject.addMarkers(this.rootNode.getElementsByTagNameNS(ORYX.CONFIG.NAMESPACE_SVG||"http://www.w3.org/2000/svg", "defs")[0]);
 						uiObject.node = this.node.childNodes[0].childNodes[2].appendChild(uiObject.node);
 						this.edges.push(uiObject);
 					} else {
@@ -298,7 +302,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	 */
 	remove: function(uiObject) {
 		//if uiObject is a child of this object, remove it.
-		if (this.children.member(uiObject)) {
+		if (this.children.indexOf(uiObject)>-1) {
 			//remove uiObject from children
 			this.children = this.children.without(uiObject);
 
@@ -346,6 +350,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
      * @methodOf ORYX.Core.Canvas.prototype
      */
     addShapeObjects: function(shapeObjects, eventHandler){
+		var self=this;
         if(!shapeObjects) return;
         
         /*FIXME This implementation is very evil! At first, all shapes are created on
@@ -358,7 +363,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
             // Try to create a new Shape
             try {
                 // Create a new Stencil
-                var stencil = ORYX.Core.StencilSet.stencil(this.getStencil().namespace() + shape.stencil.id );
+                var stencil = ORYX.Core.StencilSet.stencil(self.getStencil().namespace() + shape.stencil.id );
     
                 // Create a new Shape
                 var ShapeClass = (stencil.type() == "node") ? ORYX.Core.Node : ORYX.Core.Edge;
@@ -375,7 +380,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
                 shape.parent = "#" + ((shape.parent && shape.parent.resourceId) || parent.resourceId);
                 
                 // Add the shape to the canvas
-                this.add( newShape );
+                self.add( newShape );
 
                 return {
                   json: shape,
@@ -384,7 +389,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
             } catch(e) {
                 ORYX.Log.warn("LoadingContent: Stencil could not create.");
             }
-        }.bind(this);
+        };
         
         /** Builds up recursively a flatted array of shapes, including a javascript object and json representation
          * @param {Object} shape Any object that has Object#childShapes
@@ -392,7 +397,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
         var addChildShapesRecursively = function(shape){
             var addedShapes = [];
             
-            shape.childShapes.each(function(childShape){
+            shape.childShapes.forEach(function(childShape){
   			  /*
   			   *  workaround for Chrome, for some reason an undefined shape is given
   			   */
@@ -404,7 +409,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
             });
             
             return addedShapes;
-        }.bind(this);
+        };
 
         var shapes = addChildShapesRecursively({
             childShapes: shapeObjects, 
@@ -413,10 +418,10 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
                     
 
         // prepare deserialisation parameter
-        shapes.each(
+        shapes.forEach(
             function(shape){
             	var properties = [];
-                for(field in shape.json.properties){
+                for(var field in shape.json.properties){
                     properties.push({
                       prefix: 'oryx',
                       name: field,
@@ -425,7 +430,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
                   }
                   
                   // Outgoings
-                  shape.json.outgoing.each(function(out){
+                  shape.json.outgoing.forEach(function(out){
                     properties.push({
                       prefix: 'raziel',
                       name: 'outgoing',
@@ -457,7 +462,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
                   }
                   
                   //Dockers [{x:40, y:50}, {x:30, y:60}] => "40 50 30 60  #"
-                  if(shape.json.dockers){
+                  if(shape.json.dockers && shape.json.dockers.length){
                     properties.push({
                       prefix: 'oryx',
                       name: 'dockers',
@@ -475,26 +480,26 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
                   });
             
                   shape.__properties = properties;
-	         }.bind(this)
+	         }
         );
   
         // Deserialize the properties from the shapes
         // This can't be done earlier because Shape#deserialize expects that all referenced nodes are already there
         
         // first, deserialize all nodes
-        shapes.each(function(shape) {
+        shapes.forEach(function(shape) {
         	if(shape.object instanceof ORYX.Core.Node) {
         		shape.object.deserialize(shape.__properties);
         	}
         });
         
         // second, deserialize all edges
-        shapes.each(function(shape) {
+        shapes.forEach(function(shape) {
         	if(shape.object instanceof ORYX.Core.Edge) {
         		shape.object.deserialize(shape.__properties);
         	}
         });
-       
+        
         return shapes.pluck("object");
     },
     
@@ -540,10 +545,10 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		// If there is one element, return this element
 		if(elements.length == 1) { return elements}
 
-		return elements.findAll(function(value){
+		return elements.filter(function(value){
 			var parentShape = value.parent;
 			while(parentShape){
-				if(elements.member(parentShape)) return false;
+				if(elements.index(parentShape)!=-1) return false;
 				parentShape = parentShape.parent
 			}
 			return true;
@@ -587,7 +592,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			x2 = bb.x + bb.width;
 			y2 = bb.y + bb.height;
 		} catch(e) {
-			this.getChildShapes(true).each(function(shape) {
+			this.getChildShapes(true).forEach(function(shape) {
 				var absBounds = shape.absoluteBounds();
 				var ul = absBounds.upperLeft();
 				var lr = absBounds.lowerRight();

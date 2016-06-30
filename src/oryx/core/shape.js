@@ -39,7 +39,8 @@ ORYX.Core.Shape = {
 	construct: function(options, stencil) {
 		// call base class constructor
 		//arguments.callee.$.construct.apply(this, arguments);
-		Clazz.prototype.construct.apply(this, arguments);
+		//Clazz.prototype.construct.apply(this, arguments);
+		ORYX.Core.AbstractShape.prototype.construct.apply(this, arguments);
 		
 		this.dockers = [];
 		this.magnets = [];
@@ -94,12 +95,13 @@ ORYX.Core.Shape = {
 	 */
 	refresh: function() {
 		//call base class refresh method
-		arguments.callee.$.refresh.apply(this, arguments);
+		ORYX.Core.AbstractShape.prototype.refresh.apply(this, arguments);
+		//arguments.callee.$.refresh.apply(this, arguments);
 		
 		if(this.node.ownerDocument) {
 			//adjust SVG to properties' values
 			var me = this;
-			this.propertiesChanged.each((function(propChanged) {
+			this.propertiesChanged._each((function(propChanged) {
 				if(propChanged.value) {
 					var prop = this.properties[propChanged.key];
 					var property = this.getStencil().property(propChanged.key);
@@ -108,7 +110,7 @@ ORYX.Core.Shape = {
 					//handle choice properties
 					if(property.type() == ORYX.CONFIG.TYPE_CHOICE) {
 						//iterate all references to SVG elements
-						property.refToView().each((function(ref) {
+						property.refToView().forEach((function(ref) {
 							//if property is referencing a label, update the label
 							if(ref !== "") {
 								var label = this._labels[this.id + ref];
@@ -128,8 +130,8 @@ ORYX.Core.Shape = {
 						// show the selected and hide all other referenced SVG
 						// elements
 						var refreshedSvgElements = new Hash();
-						property.items().each((function(item) {
-							item.refToView().each((function(itemRef) {
+						property.items().forEach((function(item) {
+							item.refToView().forEach((function(itemRef) {
 								if(itemRef == "") { this.propertiesChanged[propChanged.key] = true; return; }
 								
 								var svgElem = this.node.ownerDocument.getElementById(this.id + itemRef);
@@ -152,7 +154,7 @@ ORYX.Core.Shape = {
 						
 					} else { //handle properties that are not of type choice
 						//iterate all references to SVG elements
-						property.refToView().each((function(ref) {
+						property.refToView().forEach((function(ref) {
 							//if the property does not reference an SVG element,
 							// do nothing
 
@@ -273,7 +275,7 @@ ORYX.Core.Shape = {
 			}).bind(this));
 			
 			//update labels
-			this._labels.values().each(function(label) {
+			this._labels.values().forEach(function(label) {
 				label.update();
 			});
 		}
@@ -283,7 +285,7 @@ ORYX.Core.Shape = {
 		//this.getStencil().layout(this)
 		var layoutEvents = this.getStencil().layout()
 		if(this instanceof ORYX.Core.Node && layoutEvents) {
-			layoutEvents.each(function(event) {
+			layoutEvents.forEach(function(event) {
 				
 				// setup additional attributes
 				event.shape = this;
@@ -330,7 +332,7 @@ ORYX.Core.Shape = {
 	
 	getIncomingShapes: function(iterator) {
 		if(iterator) {
-			this.incoming.each(iterator);
+			this.incoming.forEach(iterator);
 		}
 		return this.incoming;
 	},
@@ -346,7 +348,7 @@ ORYX.Core.Shape = {
 	
 	getOutgoingShapes: function(iterator) {
 		if(iterator) {
-			this.outgoing.each(iterator);
+			this.outgoing.forEach(iterator);
 		}
 		return this.outgoing;
 	},
@@ -362,7 +364,7 @@ ORYX.Core.Shape = {
 	getAllDockedShapes: function(iterator) {
 		var result = this.incoming.concat(this.outgoing);
 		if(iterator) {
-			result.each(iterator);
+			result.forEach(iterator);
 		}
 		return result
 	},
@@ -387,7 +389,7 @@ ORYX.Core.Shape = {
 			return this.nodes.clone();
 		} else {
 			var result = [];
-			this.nodes.each(function(uiObject) {
+			this.nodes.forEach(function(uiObject) {
 				if(!uiObject.isVisible){return}
 				if(iterator) {
 					iterator(uiObject);
@@ -414,7 +416,7 @@ ORYX.Core.Shape = {
 		if(uiObject instanceof ORYX.Core.UIObject 
 			&& !(uiObject instanceof ORYX.Core.Edge)) {
 			
-			if (!(this.children.member(uiObject))) {
+			if (this.children.indexOf(uiObject)==-1) {
 				//if uiObject is child of another parent, remove it from that parent.
 				if(uiObject.parent) {
 					uiObject.parent.remove(uiObject);
@@ -481,9 +483,12 @@ ORYX.Core.Shape = {
 	 */
 	remove: function(uiObject) {
 		//if uiObject is a child of this object, remove it.
-		if (this.children.member(uiObject)) {
+		if (this.children.indexOf(uiObject)>-1) {
 			//remove uiObject from children
-			this.children = this.children.without(uiObject);
+			//this.children = this.children.without(uiObject);
+			this.children = this.children.filter(function(child){
+				return child!=uiObject;
+			});
 
 			//delete parent reference of uiObject
 			uiObject.parent = undefined;
@@ -495,15 +500,24 @@ ORYX.Core.Shape = {
 					uiObject.node = this.node.childNodes[0].childNodes[2].removeChild(uiObject.node);
 				} else {
 					uiObject.node = this.node.childNodes[0].childNodes[1].removeChild(uiObject.node);
-					this.nodes = this.nodes.without(uiObject);
+					//this.nodes = this.nodes.without(uiObject);
+					this.nodes = this.nodes.filter(function(node){
+						return node!=uiObject;
+					});
 				}
 			} else if(uiObject instanceof ORYX.Core.Controls.Control) {
 				if (uiObject instanceof ORYX.Core.Controls.Docker) {
 					uiObject.node = this.node.childNodes[1].childNodes[0].removeChild(uiObject.node);
-					this.dockers = this.dockers.without(uiObject);
+					//this.dockers = this.dockers.without(uiObject);
+					this.dockers = this.dockers.filter(function(docker){
+						return docker!=uiObject;
+					});
 				} else if (uiObject instanceof ORYX.Core.Controls.Magnet) {
 					uiObject.node = this.node.childNodes[1].childNodes[1].removeChild(uiObject.node);
-					this.magnets = this.magnets.without(uiObject);
+					//this.magnets = this.magnets.without(uiObject);
+					this.magnets = this.magnets.filter(function(magnet){
+						return magnet!=uiObject;
+					});
 				} else {
 					uiObject.node = this.node.childNodes[1].removeChild(uiObject.node);
 				}
@@ -666,13 +680,14 @@ ORYX.Core.Shape = {
 	 * 		Parent
 	 */
 	serialize: function() {
-		var serializedObject = arguments.callee.$.serialize.apply(this);
+		var serializedObject =ORYX.Core.AbstractShape.prototype.serialize.apply(this, arguments);
+		//var serializedObject = arguments.callee.$.serialize.apply(this);
 
 		// Add the bounds
 		serializedObject.push({name: 'bounds', prefix:'oryx', value: this.bounds.serializeForERDF(), type: 'literal'});
 
 		// Add the outgoing shapes
-		this.getOutgoingShapes().each((function(followingShape){
+		this.getOutgoingShapes().forEach((function(followingShape){
 			serializedObject.push({name: 'outgoing', prefix:'raziel', value: '#'+ERDF.__stripHashes(followingShape.resourceId), type: 'resource'});			
 		}).bind(this));
 
@@ -686,15 +701,16 @@ ORYX.Core.Shape = {
 		
 		
 	deserialize: function(serialze){
-		arguments.callee.$.deserialize.apply(this, arguments);
+		ORYX.Core.AbstractShape.prototype.deserialize.apply(this, arguments);
+		//arguments.callee.$.deserialize.apply(this, arguments);
 		
 		// Set the Bounds
 		var bounds = serialze.find(function(ser){ return (ser.prefix+"-"+ser.name) == 'oryx-bounds'});
 		if(bounds) {
-			var b = bounds.value.replace(/,/g, " ").split(" ").without("");
+			var b = bounds.value.replace(/,/g, " ").split(" ").filter(function(value){return value!="";});
 			if(this instanceof ORYX.Core.Edge){
-				this.dockers.first().bounds.centerMoveTo(parseFloat(b[0]), parseFloat(b[1]));
-				this.dockers.last().bounds.centerMoveTo(parseFloat(b[2]), parseFloat(b[3]));
+				this.dockers[0].bounds.centerMoveTo(parseFloat(b[0]), parseFloat(b[1]));
+				this.dockers[this.dockers.length-1].bounds.centerMoveTo(parseFloat(b[2]), parseFloat(b[3]));
 			} else {
 				this.bounds.set(parseFloat(b[0]), parseFloat(b[1]), parseFloat(b[2]), parseFloat(b[3]));
 			}			
@@ -728,7 +744,7 @@ ORYX.Core.Shape = {
 			
 			// Replace URL in fill attribute
 			var fill = element.getAttributeNS(null, 'fill');
-			if (fill&&fill.include("url(#")){
+			if (fill && fill.indexOf("url(#")>-1){
 				fill = fill.replace(/url\(#/g, 'url(#'+this.id);
 				element.setAttributeNS(null, 'fill', fill);
 			}

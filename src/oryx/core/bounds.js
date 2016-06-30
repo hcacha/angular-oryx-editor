@@ -71,7 +71,7 @@ ORYX.Core.Bounds = {
 		// if(!this._changedCallbacks.member(callback)) {
 		// 	this._changedCallbacks.push(callback);	
 		// }
-		if (this._changedCallbacks.indexOf(callback)==-1) {
+		if (this._changedCallbacks.indexOf(callback) == -1) {
 			this._changedCallbacks.push(callback);
 		}
 	},
@@ -81,7 +81,9 @@ ORYX.Core.Bounds = {
 	 * @param callback {Function} The callback function.
 	 */
 	unregisterCallback: function(callback) {
-		this._changedCallbacks = this._changedCallbacks.without(callback);
+		this._changedCallbacks = this._changedCallbacks.filter(function(item) {
+			return item != callback;
+		});
 	},
 
 	/**

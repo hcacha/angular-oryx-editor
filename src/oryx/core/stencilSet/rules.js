@@ -70,13 +70,17 @@ ORYX.Core.StencilSet.Rules = {
 	 */
 	initializeRules: function(stencilSet) {
 		var self=this;
-		var existingSS = this._stencilSets.find(function(ss) {
+		var existingSSs = this._stencilSets.filter(function(ss) {
 							return (ss.namespace() == stencilSet.namespace());
 						});
+		
+		var existingSS=existingSSs.length?existingSSs[0]:null;
 		if (existingSS) {
 			// reinitialize all rules
 			var stencilsets = this._stencilSets.clone();
-			stencilsets = stencilsets.without(existingSS);
+			stencilsets = stencilsets.filter(function(stencilset){
+				return  stencilset!=existingSS;
+			});
 			stencilsets.push(stencilSet);
 			
 			this._stencilSets = [];
