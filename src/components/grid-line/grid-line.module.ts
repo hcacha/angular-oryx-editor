@@ -1,3 +1,3 @@
 import * as angular from "angular";
 
-angular.module("oryx.bpmnEditor",[]);
+angular.module("oryx.gridLine",[]);

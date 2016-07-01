@@ -1,5 +1,5 @@
 import * as angular from "angular";
-import * as ORYX from "../oryx";
+import * as ORYX from "../../oryx";
 
 export interface ISelectedRect {
     node:HTMLElement;
@@ -13,12 +13,12 @@ class SelectedRect implements ISelectedRect{
     node:HTMLElement;
     dashedArea:HTMLElement;
 
-	constructor(private parentId:angular.IAugmentedJQuery) {
-            
+	constructor(private parent:angular.IAugmentedJQuery) {
+		this.init();            
 	}
     private init = (): void => {
         var self = this;
-        self.node = ORYX.Editor.graft("http://www.w3.org/2000/svg", self.parentId[0],
+        self.node = ORYX.Editor.graft("http://www.w3.org/2000/svg", self.parent[0],
 					['g']);
 
 		self.dashedArea = ORYX.Editor.graft("http://www.w3.org/2000/svg", self.node,
@@ -48,3 +48,11 @@ class SelectedRect implements ISelectedRect{
 		self.node.setAttributeNS(null, 'transform', "translate("+ (upL.x - padding) +", "+ (upL.y - padding) +")");
 	}
 }
+export type oryxSelectedRectFactory = (parent: angular.IAugmentedJQuery) => any;
+oryxSelectedRect.$inject = [];
+function oryxSelectedRect(): oryxSelectedRectFactory {
+    return (parent: angular.IAugmentedJQuery):any => {
+        return new SelectedRect(parent);
+    }
+}
+angular.module("oryx.selectedRect").factory("oryxSelectedRectFactory",oryxSelectedRect);

@@ -1,10 +1,10 @@
 import * as angular from "angular";
-import {bpmnEditorOryxFactory} from './bpmn-editor-oryx.factory';
+import {oryxBpmnEditorFactory} from './bpmn-editor-oryx.factory';
 
 export interface IBpmnEditorCanvasController {
     modelData:any;
     stencilSetData:any;
-    reloadModel(): void;
+    reloadModel($element:angular.IAugmentedJQuery): void;
     getCanvas():any;
 }
 
@@ -13,18 +13,20 @@ class BpmnEditorCanvasController implements IBpmnEditorCanvasController{
     stencilSetData:any;
     private oryxEditor:any;
 
-    constructor(private bpmnEditorOryxFactory:bpmnEditorOryxFactory){
+    constructor(private oryxBpmnEditorFactory:oryxBpmnEditorFactory){
         this.createInstanceEditor();
     }
-    private createInstanceEditor=():void=>{
+    private createInstanceEditor=($element?:angular.IAugmentedJQuery):void=>{
         var self = this;   
         if(!self.oryxEditor && self.stencilSetData && self.modelData){
-            self.oryxEditor=self.bpmnEditorOryxFactory(self.stencilSetData,self.modelData);
+            self.oryxEditor=self.oryxBpmnEditorFactory(self.stencilSetData,self.modelData,{
+                parentNode:$element && $element.length?$element[0]:null
+            });            
         }
     }
-    reloadModel():void {
+    reloadModel($element:angular.IAugmentedJQuery):void {
         var self = this;       
-         self.createInstanceEditor();
+         self.createInstanceEditor($element);
          self.oryxEditor.loadSerialized(self.modelData.model);
     }    
     getCanvas():any{
@@ -44,6 +46,7 @@ class BpmnEditorCanvasDirective implements angular.IDirective{
         modelData: '=',
         stencilSetData:'='        
     };    
+    template :string= '<div class="resizer_southeast"></div><div class="resizer_northwest"><i class="zmdi zmdi-sort-amount-desc zmdi-hc-fw"></i></div>';
     controller: Function = BpmnEditorCanvasController;
     controllerAs: string = "bpmnEditorCanvasController";
 
@@ -60,15 +63,12 @@ class BpmnEditorCanvasDirective implements angular.IDirective{
                 return;
             }
             if (oldValue !== newValue) {
-                controller.reloadModel();
-                
-                if(element.find("svg").length<=0){
-                    self.$timeout(function() { 
-                       var canvas= controller.getCanvas();
-                       element.append(canvas.rootNode);
-                       canvas.update();
-                    });
-                }
+                controller.reloadModel(element);                
+                self.$timeout(function() { 
+                    var canvas= controller.getCanvas();
+                      // element.append(canvas.rootNode);
+                    canvas.update();
+                });
             }
         });
 

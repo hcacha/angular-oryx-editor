@@ -10,6 +10,7 @@ module.exports={
   ' * v' + VERSION + '\n' +
   ' */\n',
     jsBaseFiles: [
+        'src/oryx/event.js',
         'src/oryx/core/pathparser.js',
         'src/oryx/object.js',
         'src/oryx/clazz.js',        
@@ -37,13 +38,13 @@ module.exports={
     ],
     tsBaseFiles:[
         "typings/index.d.ts",
-        'src/common/*.ts'
+        'src/components/**/*.ts'
     ],
     jsAngularBaseFiles:[ 
-        'src/**/*module.js',       
-        'src/common/*.js'
+        'src/components/**/*module.js',       
+        'src/components/common/*.js'
     ],
-    paths: 'src/bpmn-editor/',
+    paths: 'src/components/**/',
     outputDir: 'dist/'
     //outputDir:'B:/ProyectosAATE\hcacha\Source\Repos AATE\Sistema Gestion Liberaciones e Interferencias\Presentation\SGLI.UI.MVC\wwwroot\lib\angular-oryx-editor'
 };

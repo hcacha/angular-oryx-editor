@@ -251,7 +251,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 						var candidates = node.getAbstractShapesAtPosition(x, y);
 						if (candidates.length > 0) {
 							var nodesInZOrder = node.node.parentNode.childNodes;
-							var zOrderIndex = nodesInZOrder.indexOf(node.node);
+							var zOrderIndex =Array.prototype.indexOf.call(nodesInZOrder,node.node);
 							nodesAtPosition[zOrderIndex] = candidates;
 						}
 					});

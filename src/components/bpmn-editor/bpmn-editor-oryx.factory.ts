@@ -1,17 +1,15 @@
 import * as angular from "angular";
-
-import * as ORYX from "../oryx";
+import * as ORYX from "../../oryx";
+import {oryxDragDropResizeFactory} from "../drag-drop/drag-drop-resize.factory";
 
 ORYX.CONFIG.BACKEND_SWITCH = true;
 ORYX.CONFIG.STENCILSET_HANDLER = "";
 ORYX.CONFIG.SS_EXTENSIONS_CONFIG = null;
 
+export type oryxBpmnEditorFactory = (stencilSetData:any,modelData:any,options?:any) => any;
 
-
-export type bpmnEditorOryxFactory = (stencilSetData:any,modelData:any,options?:any) => any;
-
-bpmnEditorOryx.$inject = [];
-function bpmnEditorOryx(): bpmnEditorOryxFactory {
+oryxBpmnEditor.$inject = ["oryxDragDropResizeFactory"];
+function oryxBpmnEditor(oryxDragDropResizeFactory:oryxDragDropResizeFactory): oryxBpmnEditorFactory {
     return (stencilSetData:any,modelData:any,options?:any):any => {
         
         ORYX.Core.UIObject.prototype.addEventHandlers=function(node) {
@@ -37,8 +35,12 @@ function bpmnEditorOryx(): bpmnEditorOryxFactory {
 		    enableLoadContentModel:false,
 		    enableLoadPlugins:false,
         });
-        return new ORYX.Editor(modelData,options);
+        var editor= new ORYX.Editor(modelData,options);
+        var facade= editor._getPluginFacade();
+        var oryxDragDropResize=oryxDragDropResizeFactory(facade);
+        editor.registerOnEvent(ORYX.CONFIG.EVENT_SELECTION_CHANGED, oryxDragDropResize.onSelectionChanged.bind(oryxDragDropResize));
+        return editor;
     }
 }
-angular.module("oryx.bpmnEditor").factory("bpmnEditorOryxFactory",bpmnEditorOryx);
+angular.module("oryx.bpmnEditor").factory("oryxBpmnEditorFactory",oryxBpmnEditor);
 

@@ -60,6 +60,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			ORYX.Log.fatal("Canvas is missing mandatory parameters options.width and options.height.");
 			return;
 		}
+		if(options.createHtmlContainer==null) options.createHtmlContainer=true;
 			
 		//TODO: set document resource id
 		this.resourceId = options.id;
@@ -77,9 +78,11 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		this.rootNode.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
 		this.rootNode.setAttribute("xmlns:svg", "http://www.w3.org/2000/svg");
 
-		if(options.parentNode){
+		if(options.parentNode && options.createHtmlContainer){
 			this._htmlContainer = ORYX.Editor.graft("http://www.w3.org/1999/xhtml", options.parentNode,
 				['div', {id: "oryx_canvas_htmlContainer", style:"position:absolute; top:5px"}]);
+		}else{
+			this._htmlContainer=options.parentNode;
 		}	
 		
 		this.node = ORYX.Editor.graft("http://www.w3.org/2000/svg", this.rootNode,
