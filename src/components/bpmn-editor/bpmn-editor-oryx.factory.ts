@@ -1,5 +1,5 @@
 import * as angular from "angular";
-import * as ORYX from "../../oryx";
+import * as ORYX from "oryx";
 import {oryxDragDropResizeFactory} from "../drag-drop/drag-drop-resize.factory";
 
 ORYX.CONFIG.BACKEND_SWITCH = true;

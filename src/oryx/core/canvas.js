@@ -26,13 +26,17 @@
  */
 
 
-if(!ORYX) {var ORYX = {};}
+if (!ORYX) {
+	var ORYX = {};
+}
 
 /**
    @namespace Namespace for the Oryx core elements.
    @name ORYX.Core
 */
-if(!ORYX.Core) {ORYX.Core = {};}
+if (!ORYX.Core) {
+	ORYX.Core = {};
+}
 
 /**
  * @class Oryx canvas.
@@ -40,12 +44,12 @@ if(!ORYX.Core) {ORYX.Core = {};}
  *
  */
 ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
-    /** @lends ORYX.Core.Canvas.prototype */
+	/** @lends ORYX.Core.Canvas.prototype */
 
 	/**
 	 * Defines the current zoom level
 	 */
-	zoomLevel:1,
+	zoomLevel: 1,
 
 	/**
 	 * Constructor
@@ -55,46 +59,67 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		//Clazz.prototype.construct.apply(this, arguments);
 		//arguments.callee.$.construct.apply(this, arguments);
 
-		if(!(options && options.width && options.height)) {
-		
+		if (!(options && options.width && options.height)) {
+
 			ORYX.Log.fatal("Canvas is missing mandatory parameters options.width and options.height.");
 			return;
 		}
-		if(options.createHtmlContainer==null) options.createHtmlContainer=true;
-			
+		if (options.createHtmlContainer == null) options.createHtmlContainer = true;
+
 		//TODO: set document resource id
 		this.resourceId = options.id;
 
 		this.nodes = [];
-		
+
 		this.edges = [];
-		
+
+		this.rootNode=options.parentNode?options.parentNode.querySelector("svg"):null; 
+
 		//init svg document
-		this.rootNode = ORYX.Editor.graft("http://www.w3.org/2000/svg", options.parentNode,
-			['svg', {id: this.id, width: options.width, height: options.height},
+		if (this.rootNode) {
+			this.rootNode.setAttribute("id",this.id);
+			this.rootNode.setAttribute("width",options.width);
+			this.rootNode.setAttribute("height",options.height);
+		} else {
+			this.rootNode = ORYX.Editor.graft("http://www.w3.org/2000/svg", options.parentNode, ['svg', {
+					id: this.id,
+					width: options.width,
+					height: options.height
+				},
 				['defs', {}]
 			]);
-			
+		}
 		this.rootNode.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
 		this.rootNode.setAttribute("xmlns:svg", "http://www.w3.org/2000/svg");
 
-		if(options.parentNode && options.createHtmlContainer){
-			this._htmlContainer = ORYX.Editor.graft("http://www.w3.org/1999/xhtml", options.parentNode,
-				['div', {id: "oryx_canvas_htmlContainer", style:"position:absolute; top:5px"}]);
-		}else{
-			this._htmlContainer=options.parentNode;
-		}	
-		
-		this.node = ORYX.Editor.graft("http://www.w3.org/2000/svg", this.rootNode,
-			['g', {},
-				['g', {"class": "stencils"},
-					['g', {"class": "me"}],
-					['g', {"class": "children"}],
-					['g', {"class": "edge"}]
-				],
-				['g', {"class":"svgcontainer"}]
-			]);
-		
+		if (options.parentNode && options.createHtmlContainer) {
+			this._htmlContainer = ORYX.Editor.graft("http://www.w3.org/1999/xhtml", options.parentNode, ['div', {
+				id: "oryx_canvas_htmlContainer",
+				style: "position:absolute; top:5px"
+			}]);
+		} else {
+			this._htmlContainer = options.parentNode;
+		}
+
+		this.node = ORYX.Editor.graft("http://www.w3.org/2000/svg", this.rootNode, ['g', {},
+			['g', {
+					"class": "stencils"
+				},
+				['g', {
+					"class": "me"
+				}],
+				['g', {
+					"class": "children"
+				}],
+				['g', {
+					"class": "edge"
+				}]
+			],
+			['g', {
+				"class": "svgcontainer"
+			}]
+		]);
+
 		/*
 		var off = 2 * ORYX.CONFIG.GRID_DISTANCE;
 		var size = 3;
@@ -106,7 +131,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		ORYX.Editor.graft("http://www.w3.org/2000/svg", this.node.firstChild.firstChild,
 			['path', {d:d , stroke:'#000000', 'stroke-width':'0.15px'},]);
 		*/
-		
+
 		//Global definition of default font for shapes
 		//Definitions in the SVG definition of a stencil will overwrite these settings for
 		// that stencil.
@@ -121,7 +146,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			this.node.setAttributeNS(null, 'font-family', 'Verdana');
 			this.node.setAttributeNS(null, 'font-size', ORYX.CONFIG.LABEL_DEFAULT_LINE_HEIGHT);
 		}*/
-		
+
 		this.node.setAttributeNS(null, 'stroke', 'black');
 		this.node.setAttributeNS(null, 'font-family', 'Verdana, sans-serif');
 		this.node.setAttributeNS(null, 'font-size-adjust', 'none');
@@ -129,139 +154,141 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		this.node.setAttributeNS(null, 'font-variant', 'normal');
 		this.node.setAttributeNS(null, 'font-weight', 'normal');
 		this.node.setAttributeNS(null, 'line-heigth', 'normal');
-		
+
 		this.node.setAttributeNS(null, 'font-size', ORYX.CONFIG.LABEL_DEFAULT_LINE_HEIGHT);
-			
-		this.bounds.set(0,0,options.width, options.height);
-		if(this.rootNode.parentNode){
+
+		this.bounds.set(0, 0, options.width, options.height);
+		if (this.rootNode.parentNode) {
 			this.addEventHandlers(this.rootNode.parentNode);
 		}
 		//disable context menu
-		this.rootNode.oncontextmenu = function() {return false;};
+		this.rootNode.oncontextmenu = function() {
+			return false;
+		};
 	},
-	
-	focus: function(){		
+
+	focus: function() {
 		// Get a href
-		if (!this.headerA){
-			var headerEditor=document.getElementById("oryx_editor_header");
-			if(!headerEditor) return;
-			var elA=headerEditor.getElementsByTagName("a");
-			if(!elA || elA.length<=0) return;
-			this.headerA=elA.firstChild.dom;
+		if (!this.headerA) {
+			var headerEditor = document.getElementById("oryx_editor_header");
+			if (!headerEditor) return;
+			var elA = headerEditor.getElementsByTagName("a");
+			if (!elA || elA.length <= 0) return;
+			this.headerA = elA.firstChild.dom;
 			//this.headerA = Ext.get("oryx_editor_header").child("a").dom
-		}		
+		}
 		// Focus it and blurs it
-		if(this.headerA.focus) this.headerA.focus(); 
-		if(this.headerA.blur) this.headerA.blur();;		
+		if (this.headerA.focus) this.headerA.focus();
+		if (this.headerA.blur) this.headerA.blur();;
 	},
-	
+
 	update: function() {
-		var self=this;
+		var self = this;
 		this.nodes.forEach(function(node) {
 			self._traverseForUpdate(node);
 		});
-		
+
 		// call stencil's layout callback
 		// (needed for row layouting of xforms)
 		//this.getStencil().layout(this);
-		
+
 		var layoutEvents = this.getStencil().layout();
-		
-		if(layoutEvents) {
+
+		if (layoutEvents) {
 			layoutEvents.forEach(function(event) {
-		
+
 				// setup additional attributes
 				event.shape = self;
 				event.forceExecution = true;
 				event.target = self.rootNode;
-				
+
 				// do layouting
-				
+
 				self._delegateEvent(event);
 			})
 		}
-		
+
 		this.nodes.invoke("_update");
-		
+
 		this.edges.invoke("_update", true);
-		
+
 		/*this.children.each(function(child) {
 			child._update();
 		});*/
 	},
-	
+
 	_traverseForUpdate: function(shape) {
-		var self=this;
+		var self = this;
 		var childRet = shape.isChanged;
 		shape.getChildNodes(false, function(child) {
-			if(self._traverseForUpdate(child)) {
+			if (self._traverseForUpdate(child)) {
 				childRet = true;
 			}
 		});
-		
-		if(childRet) {
+
+		if (childRet) {
 			shape.layout();
 			return true;
 		} else {
 			return false;
 		}
 	},
-	
+
 	layout: function() {
-		
-		
-		
+
+
+
 	},
-	
+
 	/**
 	 * 
 	 * @param {Object} deep
 	 * @param {Object} iterator
 	 */
 	getChildNodes: function(deep, iterator) {
-		if(!deep && !iterator) {
+		if (!deep && !iterator) {
 			return this.nodes.clone();
 		} else {
 			var result = [];
 			this.nodes.forEach(function(uiObject) {
-				if(iterator) {
+				if (iterator) {
 					iterator(uiObject);
 				}
 				result.push(uiObject);
-				
-				if(deep && uiObject instanceof ORYX.Core.Shape) {
+
+				if (deep && uiObject instanceof ORYX.Core.Shape) {
 					result = result.concat(uiObject.getChildNodes(deep, iterator));
 				}
 			});
-	
+
 			return result;
 		}
 	},
-	
+
 	/**
 	 * buggy crap! use base class impl instead! 
 	 * @param {Object} iterator
 	 */
-/*	getChildEdges: function(iterator) {
-		if(iterator) {
-			this.edges.each(function(edge) {
-				iterator(edge);
-			});
-		}
-		
-		return this.edges.clone();
-	},
-*/	
+	/*	getChildEdges: function(iterator) {
+			if(iterator) {
+				this.edges.each(function(edge) {
+					iterator(edge);
+				});
+			}
+			
+			return this.edges.clone();
+		},
+	*/
 	/**
 	 * Overrides the UIObject.add method. Adds uiObject to the correct sub node.
 	 * @param {UIObject} uiObject
 	 */
 	add: function(uiObject) {
 		//if uiObject is child of another UIObject, remove it.
-		if(uiObject instanceof ORYX.Core.UIObject) {
-			if (this.children.indexOf(uiObject)==-1) {
+		if (uiObject instanceof ORYX.Core.UIObject) {
+			if (this.children.indexOf(uiObject) == -1) {
 				//if uiObject is child of another parent, remove it from that parent.
-				if(uiObject.parent) {
+				if (uiObject.parent) {
 					uiObject.parent.remove(uiObject);
 				}
 
@@ -272,25 +299,28 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 				uiObject.parent = this;
 
 				//add uiObject.node to this.node depending on the type of uiObject
-				if(uiObject instanceof ORYX.Core.Shape) {
-					if(uiObject instanceof ORYX.Core.Edge) {
-						uiObject.addMarkers(this.rootNode.getElementsByTagNameNS(ORYX.CONFIG.NAMESPACE_SVG||"http://www.w3.org/2000/svg", "defs")[0]);
+				if (uiObject instanceof ORYX.Core.Shape) {
+					if (uiObject instanceof ORYX.Core.Edge) {
+						uiObject.addMarkers(this.rootNode.getElementsByTagNameNS(ORYX.CONFIG.NAMESPACE_SVG || "http://www.w3.org/2000/svg", "defs")[0]);
 						uiObject.node = this.node.childNodes[0].childNodes[2].appendChild(uiObject.node);
 						this.edges.push(uiObject);
 					} else {
 						uiObject.node = this.node.childNodes[0].childNodes[1].appendChild(uiObject.node);
 						this.nodes.push(uiObject);
 					}
-				} else {	//UIObject
+				} else { //UIObject
 					uiObject.node = this.node.appendChild(uiObject.node);
 				}
 
 				uiObject.bounds.registerCallback(this._changedCallback);
-					
-				if(this.eventHandlerCallback)
-					this.eventHandlerCallback({type:ORYX.CONFIG.EVENT_SHAPEADDED,shape:uiObject})
+
+				if (this.eventHandlerCallback)
+					this.eventHandlerCallback({
+						type: ORYX.CONFIG.EVENT_SHAPEADDED,
+						shape: uiObject
+					})
 			} else {
-				
+
 				ORYX.Log.warn("add: ORYX.Core.UIObject is already a child of this object.");
 			}
 		} else {
@@ -305,7 +335,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	 */
 	remove: function(uiObject) {
 		//if uiObject is a child of this object, remove it.
-		if (this.children.indexOf(uiObject)>-1) {
+		if (this.children.indexOf(uiObject) > -1) {
 			//remove uiObject from children
 			this.children = this.children.without(uiObject);
 
@@ -313,8 +343,8 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			uiObject.parent = undefined;
 
 			//delete uiObject.node from this.node
-			if(uiObject instanceof ORYX.Core.Shape) {
-				if(uiObject instanceof ORYX.Core.Edge) {
+			if (uiObject instanceof ORYX.Core.Shape) {
+				if (uiObject instanceof ORYX.Core.Edge) {
 					uiObject.removeMarkers();
 					uiObject.node = this.node.childNodes[0].childNodes[2].removeChild(uiObject.node);
 					this.edges = this.edges.without(uiObject);
@@ -322,8 +352,8 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 					uiObject.node = this.node.childNodes[0].childNodes[1].removeChild(uiObject.node);
 					this.nodes = this.nodes.without(uiObject);
 				}
-			} else {	//UIObject
-					uiObject.node = this.node.removeChild(uiObject.node);
+			} else { //UIObject
+				uiObject.node = this.node.removeChild(uiObject.node);
 			}
 
 			uiObject.bounds.unregisterCallback(this._changedCallback);
@@ -332,210 +362,214 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			ORYX.Log.warn("remove: ORYX.Core.UIObject is not a child of this object.");
 		}
 	},
-    
-    /**
-     * Creates shapes out of the given collection of shape objects and adds them to the canvas.
-     * @example 
-     * canvas.addShapeObjects({
-         bounds:{ lowerRight:{ y:510, x:633 }, upperLeft:{ y:146, x:210 } },
-         resourceId:"oryx_F0715955-50F2-403D-9851-C08CFE70F8BD",
-         childShapes:[],
-         properties:{},
-         stencil:{
-           id:"Subprocess"
-         },
-         outgoing:[{resourceId: 'aShape'}],
-         target: {resourceId: 'aShape'}
-       });
-     * @param {Object} shapeObjects 
-     * @param {Function} [eventHandler] An event handler passed to each newly created shape (as eventHandlerCallback)
-     * @return {Array} A collection of ORYX.Core.Shape
-     * @methodOf ORYX.Core.Canvas.prototype
-     */
-    addShapeObjects: function(shapeObjects, eventHandler){
-		var self=this;
-        if(!shapeObjects) return;
-        
-        /*FIXME This implementation is very evil! At first, all shapes are created on
-          canvas. In a second step, the attributes are applied. There must be a distinction
-          between the configuration phase (where the outgoings, for example, are just named),
-          and the creation phase (where the outgoings are evaluated). This must be reflected
-          in code to provide a nicer API/ implementation!!! */
-        
-        var addShape = function(shape, parent){
-            // Try to create a new Shape
-            try {
-                // Create a new Stencil
-                var stencil = ORYX.Core.StencilSet.stencil(self.getStencil().namespace() + shape.stencil.id );
-    
-                // Create a new Shape
-                var ShapeClass = (stencil.type() == "node") ? ORYX.Core.Node : ORYX.Core.Edge;
-                var newShape = new ShapeClass(
-                  {'eventHandlerCallback': eventHandler},
-                  stencil);
-                
-                // Set the resource id
-                newShape.resourceId = shape.resourceId;
-                
-                // Set parent to json object to be used later
-                // Due to the nested json structure, normally shape.parent is not set/ must not be set. 
-                // In special cases, it can be easier to set this directly instead of a nested structure.
-                shape.parent = "#" + ((shape.parent && shape.parent.resourceId) || parent.resourceId);
-                
-                // Add the shape to the canvas
-                self.add( newShape );
 
-                return {
-                  json: shape,
-                  object: newShape
-                };
-            } catch(e) {
-                ORYX.Log.warn("LoadingContent: Stencil could not create.");
-            }
-        };
-        
-        /** Builds up recursively a flatted array of shapes, including a javascript object and json representation
-         * @param {Object} shape Any object that has Object#childShapes
-         */
-        var addChildShapesRecursively = function(shape){
-            var addedShapes = [];
-            
-            shape.childShapes.forEach(function(childShape){
-  			  /*
-  			   *  workaround for Chrome, for some reason an undefined shape is given
-  			   */
-            	var xy=addShape(childShape, shape);
-  			  if(!(typeof xy ==="undefined")){
-  					addedShapes.push(xy);
-  			  }
-              addedShapes = addedShapes.concat(addChildShapesRecursively(childShape));
-            });
-            
-            return addedShapes;
-        };
+	/**
+	 * Creates shapes out of the given collection of shape objects and adds them to the canvas.
+	 * @example 
+	 * canvas.addShapeObjects({
+	     bounds:{ lowerRight:{ y:510, x:633 }, upperLeft:{ y:146, x:210 } },
+	     resourceId:"oryx_F0715955-50F2-403D-9851-C08CFE70F8BD",
+	     childShapes:[],
+	     properties:{},
+	     stencil:{
+	       id:"Subprocess"
+	     },
+	     outgoing:[{resourceId: 'aShape'}],
+	     target: {resourceId: 'aShape'}
+	   });
+	 * @param {Object} shapeObjects 
+	 * @param {Function} [eventHandler] An event handler passed to each newly created shape (as eventHandlerCallback)
+	 * @return {Array} A collection of ORYX.Core.Shape
+	 * @methodOf ORYX.Core.Canvas.prototype
+	 */
+	addShapeObjects: function(shapeObjects, eventHandler) {
+		var self = this;
+		if (!shapeObjects) return;
 
-        var shapes = addChildShapesRecursively({
-            childShapes: shapeObjects, 
-            resourceId: this.resourceId
-        });
-                    
+		/*FIXME This implementation is very evil! At first, all shapes are created on
+		  canvas. In a second step, the attributes are applied. There must be a distinction
+		  between the configuration phase (where the outgoings, for example, are just named),
+		  and the creation phase (where the outgoings are evaluated). This must be reflected
+		  in code to provide a nicer API/ implementation!!! */
 
-        // prepare deserialisation parameter
-        shapes.forEach(
-            function(shape){
-            	var properties = [];
-                for(var field in shape.json.properties){
-                    properties.push({
-                      prefix: 'oryx',
-                      name: field,
-                      value: shape.json.properties[field]
-                    });
-                  }
-                  
-                  // Outgoings
-                  shape.json.outgoing.forEach(function(out){
-                    properties.push({
-                      prefix: 'raziel',
-                      name: 'outgoing',
-                      value: "#"+out.resourceId
-                    });
-                  });
-                  
-                  // Target 
-                  // (because of a bug, the first outgoing is taken when there is no target,
-                  // can be removed after some time)
-                  if(shape.object instanceof ORYX.Core.Edge) {
-	                  var target = shape.json.target || shape.json.outgoing[0];
-	                  if(target){
-	                    properties.push({
-	                      prefix: 'raziel',
-	                      name: 'target',
-	                      value: "#"+target.resourceId
-	                    });
-	                  }
-                  }
-                  
-                  // Bounds
-                  if (shape.json.bounds) {
-                      properties.push({
-                          prefix: 'oryx',
-                          name: 'bounds',
-                          value: shape.json.bounds.upperLeft.x + "," + shape.json.bounds.upperLeft.y + "," + shape.json.bounds.lowerRight.x + "," + shape.json.bounds.lowerRight.y
-                      });
-                  }
-                  
-                  //Dockers [{x:40, y:50}, {x:30, y:60}] => "40 50 30 60  #"
-                  if(shape.json.dockers && shape.json.dockers.length){
-                    properties.push({
-                      prefix: 'oryx',
-                      name: 'dockers',
-                      value: shape.json.dockers.inject("", function(dockersStr, docker){
-                        return dockersStr + docker.x + " " + docker.y + " ";
-                      }) + " #"
-                    });
-                  }
-                  
-                  //Parent
-                  properties.push({
-                    prefix: 'raziel',
-                    name: 'parent',
-                    value: shape.json.parent
-                  });
-            
-                  shape.__properties = properties;
-	         }
-        );
-  
-        // Deserialize the properties from the shapes
-        // This can't be done earlier because Shape#deserialize expects that all referenced nodes are already there
-        
-        // first, deserialize all nodes
-        shapes.forEach(function(shape) {
-        	if(shape.object instanceof ORYX.Core.Node) {
-        		shape.object.deserialize(shape.__properties);
-        	}
-        });
-        
-        // second, deserialize all edges
-        shapes.forEach(function(shape) {
-        	if(shape.object instanceof ORYX.Core.Edge) {
-        		shape.object.deserialize(shape.__properties);
-        	}
-        });
-        
-        return shapes.pluck("object");
-    },
-    
-    /**
-     * Updates the size of the canvas, regarding to the containg shapes.
-     */
-    updateSize: function(){
-        // Check the size for the canvas
-        var maxWidth    = 0;
-        var maxHeight   = 0;
-        var offset      = 100;
-        this.getChildShapes(true, function(shape){
-            var b = shape.bounds;
-            maxWidth    = Math.max( maxWidth, b.lowerRight().x + offset)
-            maxHeight   = Math.max( maxHeight, b.lowerRight().y + offset)
-        }); 
-        
-        if( this.bounds.width() < maxWidth || this.bounds.height() < maxHeight ){
-            this.setSize({width: Math.max(this.bounds.width(), maxWidth), height: Math.max(this.bounds.height(), maxHeight)})
-        }
-    },
+		var addShape = function(shape, parent) {
+			// Try to create a new Shape
+			try {
+				// Create a new Stencil
+				var stencil = ORYX.Core.StencilSet.stencil(self.getStencil().namespace() + shape.stencil.id);
+
+				// Create a new Shape
+				var ShapeClass = (stencil.type() == "node") ? ORYX.Core.Node : ORYX.Core.Edge;
+				var newShape = new ShapeClass({
+						'eventHandlerCallback': eventHandler
+					},
+					stencil);
+
+				// Set the resource id
+				newShape.resourceId = shape.resourceId;
+
+				// Set parent to json object to be used later
+				// Due to the nested json structure, normally shape.parent is not set/ must not be set. 
+				// In special cases, it can be easier to set this directly instead of a nested structure.
+				shape.parent = "#" + ((shape.parent && shape.parent.resourceId) || parent.resourceId);
+
+				// Add the shape to the canvas
+				self.add(newShape);
+
+				return {
+					json: shape,
+					object: newShape
+				};
+			} catch (e) {
+				ORYX.Log.warn("LoadingContent: Stencil could not create.");
+			}
+		};
+
+		/** Builds up recursively a flatted array of shapes, including a javascript object and json representation
+		 * @param {Object} shape Any object that has Object#childShapes
+		 */
+		var addChildShapesRecursively = function(shape) {
+			var addedShapes = [];
+
+			shape.childShapes.forEach(function(childShape) {
+				/*
+				 *  workaround for Chrome, for some reason an undefined shape is given
+				 */
+				var xy = addShape(childShape, shape);
+				if (!(typeof xy === "undefined")) {
+					addedShapes.push(xy);
+				}
+				addedShapes = addedShapes.concat(addChildShapesRecursively(childShape));
+			});
+
+			return addedShapes;
+		};
+
+		var shapes = addChildShapesRecursively({
+			childShapes: shapeObjects,
+			resourceId: this.resourceId
+		});
+
+
+		// prepare deserialisation parameter
+		shapes.forEach(
+			function(shape) {
+				var properties = [];
+				for (var field in shape.json.properties) {
+					properties.push({
+						prefix: 'oryx',
+						name: field,
+						value: shape.json.properties[field]
+					});
+				}
+
+				// Outgoings
+				shape.json.outgoing.forEach(function(out) {
+					properties.push({
+						prefix: 'raziel',
+						name: 'outgoing',
+						value: "#" + out.resourceId
+					});
+				});
+
+				// Target 
+				// (because of a bug, the first outgoing is taken when there is no target,
+				// can be removed after some time)
+				if (shape.object instanceof ORYX.Core.Edge) {
+					var target = shape.json.target || shape.json.outgoing[0];
+					if (target) {
+						properties.push({
+							prefix: 'raziel',
+							name: 'target',
+							value: "#" + target.resourceId
+						});
+					}
+				}
+
+				// Bounds
+				if (shape.json.bounds) {
+					properties.push({
+						prefix: 'oryx',
+						name: 'bounds',
+						value: shape.json.bounds.upperLeft.x + "," + shape.json.bounds.upperLeft.y + "," + shape.json.bounds.lowerRight.x + "," + shape.json.bounds.lowerRight.y
+					});
+				}
+
+				//Dockers [{x:40, y:50}, {x:30, y:60}] => "40 50 30 60  #"
+				if (shape.json.dockers && shape.json.dockers.length) {
+					properties.push({
+						prefix: 'oryx',
+						name: 'dockers',
+						value: shape.json.dockers.inject("", function(dockersStr, docker) {
+							return dockersStr + docker.x + " " + docker.y + " ";
+						}) + " #"
+					});
+				}
+
+				//Parent
+				properties.push({
+					prefix: 'raziel',
+					name: 'parent',
+					value: shape.json.parent
+				});
+
+				shape.__properties = properties;
+			}
+		);
+
+		// Deserialize the properties from the shapes
+		// This can't be done earlier because Shape#deserialize expects that all referenced nodes are already there
+
+		// first, deserialize all nodes
+		shapes.forEach(function(shape) {
+			if (shape.object instanceof ORYX.Core.Node) {
+				shape.object.deserialize(shape.__properties);
+			}
+		});
+
+		// second, deserialize all edges
+		shapes.forEach(function(shape) {
+			if (shape.object instanceof ORYX.Core.Edge) {
+				shape.object.deserialize(shape.__properties);
+			}
+		});
+
+		return shapes.pluck("object");
+	},
+
+	/**
+	 * Updates the size of the canvas, regarding to the containg shapes.
+	 */
+	updateSize: function() {
+		// Check the size for the canvas
+		var maxWidth = 0;
+		var maxHeight = 0;
+		var offset = 100;
+		this.getChildShapes(true, function(shape) {
+			var b = shape.bounds;
+			maxWidth = Math.max(maxWidth, b.lowerRight().x + offset)
+			maxHeight = Math.max(maxHeight, b.lowerRight().y + offset)
+		});
+
+		if (this.bounds.width() < maxWidth || this.bounds.height() < maxHeight) {
+			this.setSize({
+				width: Math.max(this.bounds.width(), maxWidth),
+				height: Math.max(this.bounds.height(), maxHeight)
+			})
+		}
+	},
 
 	getRootNode: function() {
 		return this.rootNode;
 	},
-	
+
 	getSvgContainer: function() {
 		return this.node.childNodes[1];
 	},
-	
+
 	getHTMLContainer: function() {
 		return this._htmlContainer;
-	},	
+	},
 
 	/**
 	 * Return all elements of the same highest level
@@ -544,38 +578,53 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	getShapesWithSharedParent: function(elements) {
 
 		// If there is no elements, return []
-		if(!elements || elements.length < 1) { return [] }
+		if (!elements || elements.length < 1) {
+			return []
+		}
 		// If there is one element, return this element
-		if(elements.length == 1) { return elements}
+		if (elements.length == 1) {
+			return elements
+		}
 
-		return elements.filter(function(value){
+		return elements.filter(function(value) {
 			var parentShape = value.parent;
-			while(parentShape){
-				if(elements.index(parentShape)!=-1) return false;
+			while (parentShape) {
+				if (elements.index(parentShape) != -1) return false;
 				parentShape = parentShape.parent
 			}
 			return true;
-		});		
+		});
 
 	},
 
 	setSize: function(size, dontSetBounds) {
-		if(!size || !size.width || !size.height){return}
-		
-		if(this.rootNode.parentNode){
+		if (!size || !size.width || !size.height) {
+			return
+		}
+
+		if (this.rootNode.parentNode) {
 			this.rootNode.parentNode.style.width = size.width + 'px';
 			this.rootNode.parentNode.style.height = size.height + 'px';
 		}
-		
+
 		this.rootNode.setAttributeNS(null, 'width', size.width);
 		this.rootNode.setAttributeNS(null, 'height', size.height);
 
 		//this._htmlContainer.style.top = "-" + (size.height + 4) + 'px';		
-		if( !dontSetBounds ){
-			this.bounds.set({a:{x:0,y:0},b:{x:size.width/this.zoomLevel,y:size.height/this.zoomLevel}})		
+		if (!dontSetBounds) {
+			this.bounds.set({
+				a: {
+					x: 0,
+					y: 0
+				},
+				b: {
+					x: size.width / this.zoomLevel,
+					y: size.height / this.zoomLevel
+				}
+			})
 		}
 	},
-	
+
 	/**
 	 * Returns an SVG document of the current process.
 	 * @param {Boolean} escapeText Use true, if you want to parse it with an XmlParser,
@@ -583,10 +632,10 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	 */
 	getSVGRepresentation: function(escapeText) {
 		// Get the serialized svg image source
-        var svgClone = this.getRootNode().cloneNode(true);
-		
+		var svgClone = this.getRootNode().cloneNode(true);
+
 		this._removeInvisibleElements(svgClone);
-		
+
 		var x1, y1, x2, y2;
 		try {
 			var bb = this.getRootNode().childNodes[1].getBBox();
@@ -594,12 +643,12 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			y1 = bb.y;
 			x2 = bb.x + bb.width;
 			y2 = bb.y + bb.height;
-		} catch(e) {
+		} catch (e) {
 			this.getChildShapes(true).forEach(function(shape) {
 				var absBounds = shape.absoluteBounds();
 				var ul = absBounds.upperLeft();
 				var lr = absBounds.lowerRight();
-				if(x1 == undefined) {
+				if (x1 == undefined) {
 					x1 = ul.x;
 					y1 = ul.y;
 					x2 = lr.x;
@@ -612,11 +661,11 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 				}
 			});
 		}
-		
+
 		var margin = 50;
-		
+
 		var width, height, tx, ty;
-		if(x1 == undefined) {
+		if (x1 == undefined) {
 			width = 0;
 			height = 0;
 			tx = 0;
@@ -624,75 +673,75 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		} else {
 			width = x2 - x1;
 			height = y2 - y1;
-			tx = -x1+margin/2;
-			ty = -y1+margin/2;
+			tx = -x1 + margin / 2;
+			ty = -y1 + margin / 2;
 		}
-		 
-		
-		
-        // Set the width and height
-        svgClone.setAttributeNS(null, 'width', width + margin);
-        svgClone.setAttributeNS(null, 'height', height + margin);
-		
+
+
+
+		// Set the width and height
+		svgClone.setAttributeNS(null, 'width', width + margin);
+		svgClone.setAttributeNS(null, 'height', height + margin);
+
 		svgClone.childNodes[1].firstChild.setAttributeNS(null, 'transform', 'translate(' + tx + ", " + ty + ')');
-		
+
 		//remove scale factor
 		svgClone.childNodes[1].removeAttributeNS(null, 'transform');
-		
-		try{
+
+		try {
 			var svgCont = svgClone.childNodes[1].childNodes[1];
 			svgCont.parentNode.removeChild(svgCont);
-		} catch(e) {}
+		} catch (e) {}
 
-		if(escapeText) {
+		if (escapeText) {
 			svgClone.getElementsByTagNameNS(ORYX.CONFIG.NAMESPACE_SVG, 'tspan').forEach(function(elem) {
 				elem.textContent = elem.textContent.escapeHTML();
 			});
-			
+
 			svgClone.getElementsByTagNameNS(ORYX.CONFIG.NAMESPACE_SVG, 'text').forEach(function(elem) {
-				if(elem.childNodes.length == 0)
+				if (elem.childNodes.length == 0)
 					elem.textContent = elem.textContent.escapeHTML();
 			});
 		}
-		
+
 		// generating absolute urls for the pdf-exporter
 		svgClone.getElementsByTagNameNS(ORYX.CONFIG.NAMESPACE_SVG, 'image').forEach(function(elem) {
-			var href = elem.getAttributeNS("http://www.w3.org/1999/xlink","href");
-			
-			if(!href.match("^(http|https)://")) {
+			var href = elem.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+
+			if (!href.match("^(http|https)://")) {
 				href = window.location.protocol + "//" + window.location.host + href;
 				elem.setAttributeNS("http://www.w3.org/1999/xlink", "href", href);
 			}
 		});
-		
-		
+
+
 		// escape all links
 		svgClone.getElementsByTagNameNS(ORYX.CONFIG.NAMESPACE_SVG, 'a').forEach(function(elem) {
-			elem.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", (elem.getAttributeNS("http://www.w3.org/1999/xlink","href")||"").escapeHTML());
+			elem.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", (elem.getAttributeNS("http://www.w3.org/1999/xlink", "href") || "").escapeHTML());
 		});
-		
-        return svgClone;
+
+		return svgClone;
 	},
-	
+
 	/**   
-	* Removes all nodes (and its children) that has the
-	* attribute visibility set to "hidden"
-	*/
+	 * Removes all nodes (and its children) that has the
+	 * attribute visibility set to "hidden"
+	 */
 	_removeInvisibleElements: function(element) {
 		var index = 0;
-		while(index < element.childNodes.length) {
+		while (index < element.childNodes.length) {
 			var child = element.childNodes[index];
-			if(child.getAttributeNS &&
+			if (child.getAttributeNS &&
 				child.getAttributeNS(null, "visibility") === "hidden") {
 				element.removeChild(child);
 			} else {
 				this._removeInvisibleElements(child);
-				index++; 
+				index++;
 			}
 		}
-		
+
 	},
-	
+
 	/**
 	 * This method checks all shapes on the canvas and removes all shapes that
 	 * contain invalid bounds values or dockers values(NaN)
@@ -732,31 +781,33 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	},*/
 
 	_delegateEvent: function(event) {
-		if(this.eventHandlerCallback && ( event.target == this.rootNode || event.target == this.rootNode.parentNode )) {
+		if (this.eventHandlerCallback && (event.target == this.rootNode || event.target == this.rootNode.parentNode)) {
 			this.eventHandlerCallback(event, this);
 		}
 	},
-	
-	toString: function() { return "Canvas " + this.id },
-    
-    /**
-     * Calls {@link ORYX.Core.AbstractShape#toJSON} and adds some stencil set information.
-     */
-    toJSON: function() {
-        var json = arguments.callee.$.toJSON.apply(this, arguments);
-        
-//		if(ORYX.CONFIG.STENCILSET_HANDLER.length > 0) {
-//			json.stencilset = {
-//				url: this.getStencil().stencilSet().namespace()
-//	        };
-//		} else {
-			json.stencilset = {
-				url: this.getStencil().stencilSet().source(),
-				namespace: this.getStencil().stencilSet().namespace()
-	        };	
-//		}
-        
-        
-        return json;
-    }
- });
+
+	toString: function() {
+		return "Canvas " + this.id
+	},
+
+	/**
+	 * Calls {@link ORYX.Core.AbstractShape#toJSON} and adds some stencil set information.
+	 */
+	toJSON: function() {
+		var json = arguments.callee.$.toJSON.apply(this, arguments);
+
+		//		if(ORYX.CONFIG.STENCILSET_HANDLER.length > 0) {
+		//			json.stencilset = {
+		//				url: this.getStencil().stencilSet().namespace()
+		//	        };
+		//		} else {
+		json.stencilset = {
+			url: this.getStencil().stencilSet().source(),
+			namespace: this.getStencil().stencilSet().namespace()
+		};
+		//		}
+
+
+		return json;
+	}
+});

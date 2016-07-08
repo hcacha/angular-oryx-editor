@@ -20,58 +20,6 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  **/
-
-var idCounter = 0;
-var ID_PREFIX = "resource";
-
-/**
- * Main initialization method. To be called when loading
- * of the document, including all scripts, is completed.
- */
-function init() {
-
-	/* When the blank image url is not set programatically to a local
-	 * representation, a spacer gif on the site of ext is loaded from the
-	 * internet. This causes problems when internet or the ext site are not
-	 * available. */
-	Ext.BLANK_IMAGE_URL = ORYX.PATH + 'lib/ext-2.0.2/resources/images/default/s.gif';
-
-	ORYX.Log.debug("Querying editor instances");
-
-	// Hack for WebKit to set the SVGElement-Classes
-	ORYX.Editor.setMissingClasses();
-
-	// If someone wants to create the editor instance himself
-	if (window.onOryxResourcesLoaded) {
-		window.onOryxResourcesLoaded();
-	}
-	// Else if this is a newly created model
-	else if (window.location.pathname.include(ORYX.CONFIG.ORYX_NEW_URL)) {
-		new ORYX.Editor({
-			id: 'oryx-canvas123',
-			fullscreen: true,
-			stencilset: {
-				url: ORYX.PATH + ORYX.Utils.getParamFromUrl("stencilset")
-			}
-		});
-	}
-	// Else fetch the model from server and display editor
-	else {
-		//HACK for distinguishing between different backends
-		// Backend of 2008 uses /self URL ending
-		var modelUrl = window.location.href.replace(/#.*/g, "");
-		if (modelUrl.endsWith("/self")) {
-			modelUrl = modelUrl.replace("/self", "/json");
-		} else {
-			modelUrl += "&data";
-		}
-
-		ORYX.Editor.createByUrl(modelUrl, {
-			id: modelUrl
-		});
-	}
-}
-
 /**
    @namespace Global Oryx name space
    @name ORYX
@@ -79,6 +27,76 @@ function init() {
 if (!ORYX) {
 	var ORYX = {};
 }
+var JsonObjectCommand = (function (_super) {
+    Clazz.__extends(JsonObjectCommand, _super);
+    function JsonObjectCommand(jsonObject, loadSerializedCB, noSelectionAfterImport, facade,editor) {
+		this.jsonObject = jsonObject;
+		this.noSelection = noSelectionAfterImport;
+		this.facade = facade;
+		this.shapes;
+		this.connections = [];
+		this.parents = new Hash();
+		this.selection = this.facade.getSelection();
+		this.loadSerialized = loadSerializedCB;        
+		this.editor=editor;
+    }
+    JsonObjectCommand.prototype.execute = function () {
+		var self = this;
+		if (!self.shapes) {
+			// Import the shapes out of the serialization		
+			self.shapes = self.loadSerialized(self.jsonObject);
+
+			//store all connections
+			self.shapes.forEach(function(shape) {
+				if (shape.getDockers) {
+					var dockers = shape.getDockers();
+					if (dockers) {
+						if (dockers.length > 0) {
+							self.connections.push([dockers[0], dockers[0].getDockedShape(), dockers[0].referencePoint]);
+						}
+						if (dockers.length > 1) {
+							self.connections.push([dockers[dockers.length - 1], dockers[dockers.length - 1].getDockedShape(), dockers[dockers.length - 1].referencePoint]);
+						}
+					}
+				}
+				//store parents
+				self.parents[shape.id] = shape.parent;
+			});
+		} else {
+			self.shapes.forEach(function(shape) {
+				self.parents[shape.id].add(shape);
+			});
+
+			self.connections.forEach(function(con) {
+				con[0].setDockedShape(con[1]);
+				con[0].setReferencePoint(con[2]);
+				//con[0].update();
+			});
+		}
+
+		//this.parents.values().uniq().invoke("update");
+		self.facade.getCanvas().update();
+
+		if (!self.noSelection)
+			self.facade.setSelection(self.shapes);
+		else
+			self.facade.updateSelection();						        
+    };
+    JsonObjectCommand.prototype.rollback = function () {
+		var self = this;
+		var selection = self.facade.getSelection();
+
+		self.shapes.forEach(function(shape) {
+			selection = selection.without(shape);
+			self.facade.deleteShape(shape);
+		});	
+
+		self.facade.getCanvas().update();
+
+		self.facade.setSelection(selection);        
+    };
+    return JsonObjectCommand;
+}(ORYX.Core.Command));
 
 /**
  * The Editor class.
@@ -860,7 +878,7 @@ ORYX.Editor = {
 		// Check if the argument is an array and the elements are from command-class
 		if (commands instanceof Array &&
 			commands.length > 0 &&
-			commands.all(function(command) {
+			commands.every(function(command) {
 				return command instanceof ORYX.Core.Command
 			})) {
 
@@ -951,81 +969,82 @@ ORYX.Editor = {
 			Ext.Msg.alert(ORYX.I18N.JSONImport.title, String.format(ORYX.I18N.JSONImport.wrongSS, jsonObject.stencilset.namespace, this.getCanvas().getStencil().stencilSet().namespace()));
 			return null;
 		} else {
-			var commandClass = ORYX.Core.Command.extend({
-				construct: function(jsonObject, loadSerializedCB, noSelectionAfterImport, facade) {
-					this.jsonObject = jsonObject;
-					this.noSelection = noSelectionAfterImport;
-					this.facade = facade;
-					this.shapes;
-					this.connections = [];
-					this.parents = new Hash();
-					this.selection = this.facade.getSelection();
-					this.loadSerialized = loadSerializedCB;
-				},
-				execute: function() {
-					var self = this;
+			
+			// var commandClass = ORYX.Core.Command.extend({
+			// 	construct: function(jsonObject, loadSerializedCB, noSelectionAfterImport, facade) {
+			// 		this.jsonObject = jsonObject;
+			// 		this.noSelection = noSelectionAfterImport;
+			// 		this.facade = facade;
+			// 		this.shapes;
+			// 		this.connections = [];
+			// 		this.parents = new Hash();
+			// 		this.selection = this.facade.getSelection();
+			// 		this.loadSerialized = loadSerializedCB;
+			// 	},
+			// 	execute: function() {
+			// 		var self = this;
 
-					if (!this.shapes) {
-						// Import the shapes out of the serialization		
-						this.shapes = this.loadSerialized(this.jsonObject);
+			// 		if (!this.shapes) {
+			// 			// Import the shapes out of the serialization		
+			// 			this.shapes = this.loadSerialized(this.jsonObject);
 
-						//store all connections
-						this.shapes.forEach(function(shape) {
-							if (shape.getDockers) {
-								var dockers = shape.getDockers();
-								if (dockers) {
-									if (dockers.length > 0) {
-										self.connections.push([dockers[0], dockers[0].getDockedShape(), dockers[0].referencePoint]);
-									}
-									if (dockers.length > 1) {
-										self.connections.push([dockers[dockers.length - 1], dockers[dockers.length - 1].getDockedShape(), dockers[dockers.length - 1].referencePoint]);
-									}
-								}
-							}
-							//store parents
-							self.parents[shape.id] = shape.parent;
-						});
-					} else {
-						this.shapes.forEach(function(shape) {
-							self.parents[shape.id].add(shape);
-						});
+			// 			//store all connections
+			// 			this.shapes.forEach(function(shape) {
+			// 				if (shape.getDockers) {
+			// 					var dockers = shape.getDockers();
+			// 					if (dockers) {
+			// 						if (dockers.length > 0) {
+			// 							self.connections.push([dockers[0], dockers[0].getDockedShape(), dockers[0].referencePoint]);
+			// 						}
+			// 						if (dockers.length > 1) {
+			// 							self.connections.push([dockers[dockers.length - 1], dockers[dockers.length - 1].getDockedShape(), dockers[dockers.length - 1].referencePoint]);
+			// 						}
+			// 					}
+			// 				}
+			// 				//store parents
+			// 				self.parents[shape.id] = shape.parent;
+			// 			});
+			// 		} else {
+			// 			this.shapes.forEach(function(shape) {
+			// 				self.parents[shape.id].add(shape);
+			// 			});
 
-						this.connections.forEach(function(con) {
-							con[0].setDockedShape(con[1]);
-							con[0].setReferencePoint(con[2]);
-							//con[0].update();
-						});
-					}
+			// 			this.connections.forEach(function(con) {
+			// 				con[0].setDockedShape(con[1]);
+			// 				con[0].setReferencePoint(con[2]);
+			// 				//con[0].update();
+			// 			});
+			// 		}
 
-					//this.parents.values().uniq().invoke("update");
-					this.facade.getCanvas().update();
+			// 		//this.parents.values().uniq().invoke("update");
+			// 		this.facade.getCanvas().update();
 
-					if (!this.noSelection)
-						this.facade.setSelection(this.shapes);
-					else
-						this.facade.updateSelection();
-				},
-				rollback: function() {
-					var self = this;
-					var selection = this.facade.getSelection();
+			// 		if (!this.noSelection)
+			// 			this.facade.setSelection(this.shapes);
+			// 		else
+			// 			this.facade.updateSelection();
+			// 	},
+			// 	rollback: function() {
+			// 		var self = this;
+			// 		var selection = this.facade.getSelection();
 
-					this.shapes.forEach(function(shape) {
-						selection = selection.without(shape);
-						self.facade.deleteShape(shape);
-					});
+			// 		this.shapes.forEach(function(shape) {
+			// 			selection = selection.without(shape);
+			// 			self.facade.deleteShape(shape);
+			// 		});
 
-					/*this.parents.values().uniq().each(function(parent) {
-						if(!this.shapes.some(parent))
-							parent.update();
-					}.bind(this));*/
+			// 		/*this.parents.values().uniq().each(function(parent) {
+			// 			if(!this.shapes.some(parent))
+			// 				parent.update();
+			// 		}.bind(this));*/
 
-					this.facade.getCanvas().update();
+			// 		this.facade.getCanvas().update();
 
-					this.facade.setSelection(selection);
-				}
-			})
+			// 		this.facade.setSelection(selection);
+			// 	}
+			// })
 
-			var command = new commandClass(jsonObject,
+			var command = new JsonObjectCommand(jsonObject,
 				this.loadSerialized.bind(this),
 				noSelectionAfterImport,
 				this._getPluginFacade());
@@ -1198,8 +1217,6 @@ ORYX.Editor = {
 				this.getCanvas().setProperty("oryx-" + key, prop);
 			}
 		}
-
-
 		this.getCanvas().updateSize();
 		return shapes;
 	},
@@ -1392,8 +1409,8 @@ ORYX.Editor = {
 			elements = [];
 		}
 
-		if (!force && elements.length === this.selection.length && this.selection.filter(function(r) {
-				return elements.include(r)
+		if (!force && elements.length === this.selection.length && this.selection.every(function(r) {
+				return elements.include(r);
 			})) {
 			return;
 		}

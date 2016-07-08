@@ -726,7 +726,7 @@ ORYX.Core.StencilSet.Rules = {
 				max = source[args.edgeStencil.id()];
 				
 				if(max != -1) {
-					result = args.sourceShape.getOutgoingShapes().all(function(cs) {
+					result = args.sourceShape.getOutgoingShapes().every(function(cs) {
 								if((cs.getStencil().id() === args.edgeStencil.id()) && 
 								   ((args.edgeShape) ? cs !== args.edgeShape : true)) {
 									max--;
@@ -755,7 +755,7 @@ ORYX.Core.StencilSet.Rules = {
 				max = target[args.edgeStencil.id()];
 				
 				if(max != -1) {
-					result = args.targetShape.getIncomingShapes().all(function(cs){
+					result = args.targetShape.getIncomingShapes().every(function(cs){
 								if ((cs.getStencil().id() === args.edgeStencil.id()) &&
 								((args.edgeShape) ? cs !== args.edgeShape : true)) {
 									max--;
@@ -818,13 +818,13 @@ ORYX.Core.StencilSet.Rules = {
 			resultCR = false;
 		} else {
 			if(args.sourceStencil) {
-				resultCR = args.sourceStencil.roles().any(function(sourceRole) {
+				resultCR = args.sourceStencil.roles().some(function(sourceRole) {
 					var targetRoles = edgeRules[sourceRole];
 
 					if(!targetRoles) {return false;}
 		
 					if(args.targetStencil) {
-						return (targetRoles.any(function(targetRole) {
+						return (targetRoles.some(function(targetRole) {
 							return args.targetStencil.roles().member(targetRole);
 						}));
 					} else {
@@ -832,8 +832,8 @@ ORYX.Core.StencilSet.Rules = {
 					}
 				});
 			} else { // !args.sourceStencil -> there is args.targetStencil
-				resultCR = edgeRules.values().any(function(targetRoles) {
-					return args.targetStencil.roles().any(function(targetRole) {
+				resultCR = edgeRules.values().some(function(targetRoles) {
+					return args.targetStencil.roles().some(function(targetRole) {
 						return targetRoles.member(targetRole);
 					});
 				});
@@ -905,7 +905,7 @@ ORYX.Core.StencilSet.Rules = {
 		else {
 			if(args.containingShape) {
 				var max = childValues[1];
-				return args.containingShape.getChildShapes(false).all(function(as) {
+				return args.containingShape.getChildShapes(false).every(function(as) {
 					if(as.getStencil().id() === args.containedStencil.id()) {
 						max--;
 						return (max > 0) ? true : false;
@@ -958,7 +958,7 @@ ORYX.Core.StencilSet.Rules = {
 		// check containment rules
 		//We loop through all roles of the stencil we just moved
 		//over with the mouse while draging another stencil. 
-		result = args.containingStencil.roles().any((function(role) {
+		result = args.containingStencil.roles().some((function(role) {
 			//this._containmentRules is an array of an array of roles.
 			//The inner array are roles that can be contained by the roles
 			//named by the outer array. Example: [subprocess[sequence_end, ...]]. 
@@ -966,7 +966,7 @@ ORYX.Core.StencilSet.Rules = {
 			//with the role from the current iteration. 
 			var roles = this._containmentRules[role];
 			if(roles) {
-				return roles.any(function(role) {
+				return roles.some(function(role) {
 					//Here we look if the role of the current stencil allows
 					//it to contain the role of the stencil we just drag. 
 					//The roles of these stencils must be the same. 
@@ -1037,7 +1037,7 @@ ORYX.Core.StencilSet.Rules = {
 	 * @return {boolean} 
 	 */
 	containsMorphingRules: function(){
-		return this._stencilSets.any(function(ss){ return !!ss.jsonRules().morphingRules});
+		return this._stencilSets.some(function(ss){ return !!ss.jsonRules().morphingRules});
 	},
 	
 	/**
@@ -1094,9 +1094,9 @@ ORYX.Core.StencilSet.Rules = {
 	 * specified morph shall be displayed in the shape menu
 	 */
 	showInShapeMenu: function(stencil) {
-		return 	this._stencilSets.any(function(ss){
+		return 	this._stencilSets.some(function(ss){
 				    return ss.jsonRules().morphingRules
-							.any(function(r){
+							.some(function(r){
 								return 	stencil.roles().include(ss.namespace() + r.role) 
 										&& r.showInShapeMenu !== false;
 							})
@@ -1104,8 +1104,8 @@ ORYX.Core.StencilSet.Rules = {
 	},
 	
 	preserveBounds: function(stencil) {
-		return this._stencilSets.any(function(ss) {
-			return ss.jsonRules().morphingRules.any(function(r) {
+		return this._stencilSets.some(function(ss) {
+			return ss.jsonRules().morphingRules.some(function(r) {
 				
 				
 				return stencil.roles().include(ss.namespace() + r.role) 
@@ -1182,7 +1182,7 @@ ORYX.Core.StencilSet.Rules = {
 	 */
 	_hasRole: function(shape, role){
 		if (!(shape instanceof ORYX.Core.Shape)||!role){ return }
-		var isRole = shape.getStencil().roles().any(function(r){ return r == role});
+		var isRole = shape.getStencil().roles().some(function(r){ return r == role});
 		
 		return isRole || shape.getStencil().id() == (shape.getStencil().namespace()+role);
 	},

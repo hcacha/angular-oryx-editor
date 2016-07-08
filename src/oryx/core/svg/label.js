@@ -416,7 +416,7 @@ ORYX.Core.SVG.Label = Clazz.extend({
 			var invalidTSpans = [];
 
 			for (var j = 0; j < tspans.length; j++) {
-				var tspan= tspans[J];
+				var tspan= tspans[j];
 
 				if(tspan.textContent.trim() === "") {
 					invalidTSpans.push(tspan);

@@ -1,5 +1,5 @@
 import * as angular from "angular";
-import * as ORYX from "../../oryx";
+import * as ORYX from "oryx";
 
 enum GridLineDir {
     DIR_HORIZONTAL = <any>"hor",
@@ -57,7 +57,8 @@ class GridLine implements IGridLine {
     getScale():number {
         var self = this;
         try {
-            return (<any>self.parent[0].parentNode).transform.baseVal.getItem(0).matrix.a;
+            var baseVal= (<any>self.parent[0].parentNode).transform.baseVal;
+            return baseVal && baseVal.length? baseVal.getItem(0).matrix.a:1;
         } catch (e) {
             return 1;
         }

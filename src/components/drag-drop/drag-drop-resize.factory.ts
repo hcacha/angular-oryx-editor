@@ -1,30 +1,334 @@
 import * as angular from "angular";
-import * as ORYX from "../../oryx";
-import {ISelectedRect,oryxSelectedRectFactory} from "../selected-rect/selected-rect.factory";
+import * as ORYX from "oryx";
+import {ISelectedRect, oryxSelectedRectFactory} from "../selected-rect/selected-rect.factory";
 import {IGridLine, oryxGridLineFactory} from "../grid-line/grid-line.factory";
 import {IResizerNode, oryxResizerNodeFactory} from "../resize/resizer-node.factory";
 
-export interface IDragDropResize {
+
+class ResizeCommand extends ORYX.Core.Command {
+    private oldBounds: any;
+    constructor(private shape: any,
+        private newBounds: any,
+        private plugin: IDragDropResize) {
+        super();
+        this.oldBounds = shape.bounds.clone();
+    }
+    execute() {
+        var self = this;
+        self.shape.bounds.set(self.newBounds.a, self.newBounds.b);
+        self.update(self.getOffset(self.oldBounds, self.newBounds));
+
+    }
+    rollback() {
+        var self = this;
+        self.shape.bounds.set(self.oldBounds.a, self.oldBounds.b);
+        self.update(self.getOffset(self.newBounds, self.oldBounds))
+    }
+
+    getOffset(b1: any, b2: any) {
+        var self = this;
+        return {
+            x: b2.a.x - b1.a.x,
+            y: b2.a.y - b1.a.y,
+            xs: b2.width() / b1.width(),
+            ys: b2.height() / b1.height()
+        }
+    }
+    update(offset: any) {
+        var self = this;
+        self.shape.getLabels().forEach(function (label) {
+            label.changed();
+        });
+
+        var allEdges = [].concat(self.shape.getIncomingShapes())
+            .concat(self.shape.getOutgoingShapes())
+            .filter(function (r) {
+                return r instanceof ORYX.Core.Edge;
+            });
+
+        self.plugin.layoutEdges(self.shape, allEdges, offset);
+
+        self.plugin.facade.setSelection([self.shape]);
+        self.plugin.facade.getCanvas().update();
+        self.plugin.facade.updateSelection();
+    }
+}
+class DockCommand extends ORYX.Core.Command {
+    private newPosition: any;
+    private newParent: any;
+    private oldPosition: any;
+    private oldDockedShape: any;
+    private oldParent: any;
+
+    constructor(private docker: any, position: any, private newDockedShape: any, private facade: oryx.IPluginFacade) {
+        super();
+        this.newPosition = position;
+        //self.newDockedShape = newDockedShape;
+        this.newParent = newDockedShape.parent || facade.getCanvas();
+        this.oldPosition = docker.parent.bounds.center();
+        this.oldDockedShape = docker.getDockedShape();
+        this.oldParent = docker.parent.parent || facade.getCanvas();
+
+        if (this.oldDockedShape) {
+            this.oldPosition = docker.parent.absoluteBounds().center();
+        }
+
+    }
+    execute() {
+        var self = this;
+        self.dock(self.newDockedShape, self.newParent, self.newPosition);
+
+        // Raise Event for having the docked shape on top of the other shape
+        self.facade.raiseEvent({ type: ORYX.CONFIG.EVENT_ARRANGEMENT_TOP, excludeCommand: true })
+    }
+    rollback() {
+        var self = this;
+        self.dock(self.oldDockedShape, self.oldParent, self.oldPosition);
+    }
+    dock(toDockShape, parent, pos) {
+        var self = this;
+        // Add to the same parent Shape
+        parent.add(self.docker.parent);
+
+        // Set the Docker to the new Shape
+        self.docker.setDockedShape(undefined);
+        self.docker.bounds.centerMoveTo(pos)
+        self.docker.setDockedShape(toDockShape);
+        //self.docker.update();
+
+        self.facade.setSelection([self.docker.parent]);
+        self.facade.getCanvas().update();
+        self.facade.updateSelection();
+    }
+}
+class MoveCommand extends ORYX.Core.Command {
+    private newParents: any;
+    private oldParents: any;
+    private dockedNodes: any;
+
+    constructor(private moveShapes: any,
+        private offset: any,
+        private parent: any,
+        private selectedShapes: any,
+        private plugin: IDragDropResize) {
+        super();
+        // Defines the old/new parents for the particular shape
+        this.newParents = moveShapes.map(function (t) {
+            return parent || t.parent;
+        });
+        this.oldParents = moveShapes.map(function (shape) {
+            return shape.parent;
+        });
+        this.dockedNodes = moveShapes.filter(function (shape) {
+            return shape instanceof ORYX.Core.Node && shape.dockers.length == 1;
+        }).map(function (shape) {
+            return {
+                docker: shape.dockers[0],
+                dockedShape: shape.dockers[0].getDockedShape(),
+                refPoint: shape.dockers[0].referencePoint
+            }
+        });
+    }
+    execute() {
+        var self = this;
+        self.dockAllShapes()
+        // Moves by the offset
+        self.move(self.offset);
+        // Addes to the new parents
+        self.addShapeToParent(self.newParents);
+        // Set the selection to the current selection
+        self.selectCurrentShapes();
+        self.plugin.facade.getCanvas().update();
+        self.plugin.facade.updateSelection();
+    }
+    rollback() {
+        var self = this;
+        // Moves by the inverted offset
+        var offset = { x: -self.offset.x, y: -self.offset.y };
+        self.move(offset);
+        // Addes to the old parents
+        self.addShapeToParent(self.oldParents);
+        self.dockAllShapes(true)
+
+        // Set the selection to the current selection
+        self.selectCurrentShapes();
+        self.plugin.facade.getCanvas().update();
+        self.plugin.facade.updateSelection();
+
+    }
+    move(offset: any, doLayout?: any) {
+        var self = this;
+        // Move all Shapes by these offset
+        for (var i = 0; i < self.moveShapes.length; i++) {
+            var value = self.moveShapes[i];
+            value.bounds.moveBy(offset);
+
+            if (value instanceof ORYX.Core.Node) {
+
+                (value.dockers || []).forEach(function (d) {
+                    d.bounds.moveBy(offset);
+                });
+
+                var allEdges = [].concat(value.getIncomingShapes())
+                    .concat(value.getOutgoingShapes())
+                    // Remove all edges which are included in the selection from the list
+                    .filter(function (r) {
+                        return r instanceof ORYX.Core.Edge &&
+                            !self.moveShapes.some(function (d) {
+                                return d == r || (d instanceof ORYX.Core.Controls.Docker && d.parent == r);
+                            })
+                    })
+                    // Remove all edges which are between the node and a node contained in the selection from the list
+                    .filter(function (r) {
+                        return (r.dockers[0].getDockedShape() == value ||
+                            !self.moveShapes.include(r.dockers[0].getDockedShape())) &&
+                            (r.dockers[r.dockers.length - 1].getDockedShape() == value ||
+                                !self.moveShapes.include(r.dockers[r.dockers.length - 1].getDockedShape()));
+                    });
+
+                // Layout all outgoing/incoming edges
+                self.plugin.layoutEdges(value, allEdges, offset);
+
+
+                var allSameEdges = [].concat(value.getIncomingShapes())
+                    .concat(value.getOutgoingShapes())
+                    // Remove all edges which are included in the selection from the list
+                    .filter(function (r) {
+                        return r instanceof ORYX.Core.Edge &&
+                            r.dockers[0].isDocked()
+                            && r.dockers[r.dockers.length - 1].isDocked() &&
+                            !self.moveShapes.include(r) &&
+                            !self.moveShapes.some(function (d) {
+                                return d == r || (d instanceof ORYX.Core.Controls.Docker && d.parent == r);
+                            });
+                    })
+                    // Remove all edges which are included in the selection from the list
+                    .filter(function (r) {
+                        return self.moveShapes.indexOf(r.dockers[0].getDockedShape()) > i
+                            || self.moveShapes.indexOf(r.dockers[r.dockers.length - 1].getDockedShape()) > i;
+                    });
+
+                for (var j = 0; j < allSameEdges.length; j++) {
+                    for (var k = 1; k < allSameEdges[j].dockers.length - 1; k++) {
+                        var docker = allSameEdges[j].dockers[k];
+                        if (!docker.getDockedShape() && !self.moveShapes.include(docker)) {
+                            docker.bounds.moveBy(offset);
+                        }
+                    }
+                }
+            }
+        }
+
+    }
+    dockAllShapes(shouldDocked?: any) {
+        // Undock all Nodes
+        for (var i = 0; i < this.dockedNodes.length; i++) {
+            var docker = this.dockedNodes[i].docker;
+
+            docker.setDockedShape(shouldDocked ? this.dockedNodes[i].dockedShape : undefined)
+            if (docker.getDockedShape()) {
+                docker.setReferencePoint(this.dockedNodes[i].refPoint);
+                //docker.update();
+            }
+        }
+    }
+
+    addShapeToParent(parents: any) {
+
+        // For every Shape, add this and reset the position		
+        for (var i = 0; i < this.moveShapes.length; i++) {
+            var currentShape = this.moveShapes[i];
+            if (currentShape instanceof ORYX.Core.Node &&
+                currentShape.parent !== parents[i]) {
+
+                // Calc the new position
+                var unul = parents[i].absoluteXY();
+                var csul = currentShape.absoluteXY();
+                var x = csul.x - unul.x;
+                var y = csul.y - unul.y;
+
+                // Add the shape to the new contained shape
+                parents[i].add(currentShape);
+                // Add all attached shapes as well
+                currentShape.getOutgoingShapes((function (shape) {
+                    if (shape instanceof ORYX.Core.Node && this.moveShapes.indexOf(shape)==-1) {
+                        parents[i].add(shape);
+                    }
+                }).bind(this));
+
+                // Set the new position
+                if (currentShape instanceof ORYX.Core.Node && currentShape.dockers.length == 1) {
+                    var b = currentShape.bounds;
+                    x += b.width() / 2; y += b.height() / 2
+                    currentShape.dockers[0].bounds.centerMoveTo(x, y);
+                } else {
+                    currentShape.bounds.moveTo(x, y);
+                }
+
+            }
+
+            // Update the shape
+            //currentShape.update();
+
+        }
+    }
+    selectCurrentShapes() {
+        this.plugin.facade.setSelection(this.selectedShapes);
+    }
+}
+class UndockEdgeCommand extends ORYX.Core.Command {
+    private dockers: any;
+
+    constructor(moveShapes) {
+        super();
+        this.dockers = moveShapes.map(function (shape) { 
+            return shape instanceof ORYX.Core.Controls.Docker 
+                    ? 
+                        { docker: shape, dockedShape: shape.getDockedShape(), refPoint: shape.referencePoint } 
+                    : undefined 
+        }).filter(function(item){
+            return item !=null;
+        });
+    }
+    execute() {
+        var self=this;
+        self.dockers.forEach(function (el) {
+            el.docker.setDockedShape(undefined);
+        });
+    }
+    rollback() {
+        var self=this;
+        self.dockers.forEach(function (el) {
+            el.docker.setDockedShape(el.dockedShape);
+            el.docker.setReferencePoint(el.refPoint);
+            //el.docker.update();
+        });
+    }
+}
+
+
+export interface IDragDropResize extends ORYX.IAbstractPlugin {
     handleMouseDown(event, uiObj): void;
     handleMouseUp(event): void;
     handleMouseMove(event): void;
-    checkRules(options):void;
-    refreshSelectedShapes():void;
-    onResize(bounds):void;
-    onResizeStart():void;
-    onResizeEnd():void;    
-    beforeDrag():void;
-    hideAllLabels(shape):void;
-    afterDrag():void;
-    showAllLabels(shape):void;
-    onSelectionChanged(event):void;
-    snapToGrid(position):any;
-    showGridLine():void;
-    resizeRectangle(bounds):void;
+    checkRules(options): void;
+    refreshSelectedShapes(): void;
+    onResize(bounds): void;
+    onResizeStart(): void;
+    onResizeEnd(): void;
+    beforeDrag(): void;
+    hideAllLabels(shape): void;
+    afterDrag(): void;
+    showAllLabels(shape): void;
+    onSelectionChanged(event): void;
+    snapToGrid(position): any;
+    showGridLine(): void;
+    resizeRectangle(bounds): void;
+    facade: ORYX.IPluginFacade;
 }
 
-class DragDropResize implements IDragDropResize {
-
+class DragDropResize extends ORYX.Core.AbstractPlugin implements IDragDropResize {
+    facade: ORYX.IPluginFacade;
     currentShapes: Array<any> = [];			// Current selected Shapes	
     toMoveShapes: Array<any> = [];			// Shapes there will be moved
     distPoints: Array<any> = [];			// Distance Points for Snap on Grid
@@ -46,17 +350,20 @@ class DragDropResize implements IDragDropResize {
     private resizerNW: any;
     private dragBounds: any;
     private offsetScroll: any;
-    private _onlyEdges: Array<any>;
+    private _onlyEdges: boolean;
     private _currentUnderlyingNodes: Array<any>;
     private oldDragBounds: any;
-    private distPointTimeout:any;
+    private distPointTimeout: any;
+    private _undockedEdgesCommand: any;
 
-    constructor(private facade: any, 
-     private selectedRect: ISelectedRect,
-     private oryxResizerNodeFactory: oryxResizerNodeFactory,
-     private oryxGridLineFactory: oryxGridLineFactory,
-     private $timeout:angular.ITimeoutService) {
+    constructor(facade: ORYX.IPluginFacade,
+        private selectedRect: ISelectedRect,
+        private oryxResizerNodeFactory: oryxResizerNodeFactory,
+        private oryxGridLineFactory: oryxGridLineFactory,
+        private $timeout: angular.ITimeoutService) {
+        super(facade);
         // Show grid line if enabled
+        this.facade = facade;
         var containerNode;
         if (ORYX.CONFIG.SHOW_GRIDLINE) {
             containerNode = angular.element(this.facade.getCanvas().getSvgContainer());
@@ -103,7 +410,9 @@ class DragDropResize implements IDragDropResize {
 
         // If the selection Bounds not intialized and the uiObj is not member of current selectio
         // then return
-        if (!self.dragBounds || self.currentShapes.indexOf(uiObj) == -1 || !self.toMoveShapes.length) { return };
+        if (!self.dragBounds || self.currentShapes.indexOf(uiObj) == -1 || !self.toMoveShapes.length) {
+            return;
+        }
 
         // Start Dragging
         self.dragEnable = true;
@@ -125,13 +434,19 @@ class DragDropResize implements IDragDropResize {
         self.offsetScroll = { x: self.scrollNode.scrollLeft, y: self.scrollNode.scrollTop };
 
         // Register on Global Mouse-MOVE Event
-        //document.documentElement.addEventListener(ORYX.CONFIG.EVENT_MOUSEMOVE, self.callbackMouseMove, false);
-        var containerNode = angular.element(this.facade.getCanvas().getHTMLContainer());
-        containerNode.on(ORYX.CONFIG.EVENT_MOUSEMOVE,self.callbackMouseMove);
-        // Register on Global Mouse-UP Event
-        //document.documentElement.addEventListener(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp, true);
-        containerNode.on(ORYX.CONFIG.EVENT_MOUSEUP,self.callbackMouseMove);
+		//document.documentElement.addEventListener(ORYX.CONFIG.EVENT_MOUSEMOVE, this.callbackMouseMove, false);	
+		// Register on Global Mouse-UP Event
+		//document.documentElement.addEventListener(ORYX.CONFIG.EVENT_MOUSEUP, this.callbackMouseUp, true);			
 
+        // // Register on Global Mouse-MOVE Event
+        // //document.documentElement.addEventListener(ORYX.CONFIG.EVENT_MOUSEMOVE, self.callbackMouseMove, false);
+        var containerNode = angular.element(self.facade.getCanvas().getHTMLContainer());
+        containerNode.on(ORYX.CONFIG.EVENT_MOUSEMOVE, self.callbackMouseMove);
+        // // Register on Global Mouse-UP Event
+        // document.documentElement.addEventListener(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp, true);
+        containerNode.on(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp);
+        // //self.facade.getCanvas().getHTMLContainer().addEventListener(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp, true);
+        
     }
 
 	/**
@@ -169,57 +484,10 @@ class DragDropResize implements IDragDropResize {
                     var position = self.facade.eventCoordinates(event);
                     var docker = self.toMoveShapes[0].dockers[0];
 
-
-
                     //Command-Pattern for dragging several Shapes
-                    // var dockCommand = ORYX.Core.Command.extend({
-                    // 	construct(docker, position, newDockedShape, facade){
-                    // 		self.docker 		= docker;
-                    // 		self.newPosition	= position;
-                    // 		self.newDockedShape = newDockedShape;
-                    // 		self.newParent 		= newDockedShape.parent || facade.getCanvas();
-                    // 		self.oldPosition	= docker.parent.bounds.center();
-                    // 		self.oldDockedShape	= docker.getDockedShape();
-                    // 		self.oldParent 		= docker.parent.parent || facade.getCanvas();
-                    // 		self.facade			= facade;
-
-                    // 		if( self.oldDockedShape ){
-                    // 			self.oldPosition = docker.parent.absoluteBounds().center();
-                    // 		}
-
-                    // 	},			
-                    // 	execute(){
-                    // 		self.dock( self.newDockedShape, self.newParent,  self.newPosition );
-
-                    // 		// Raise Event for having the docked shape on top of the other shape
-                    // 		self.facade.raiseEvent({type:ORYX.CONFIG.EVENT_ARRANGEMENT_TOP, excludeCommand: true})									
-                    // 	},
-                    // 	rollback(){
-                    // 		self.dock( self.oldDockedShape, self.oldParent, self.oldPosition );
-                    // 	},
-                    // 	dock:function( toDockShape, parent, pos ){
-                    // 		// Add to the same parent Shape
-                    // 		parent.add( self.docker.parent )
-
-
-                    // 		// Set the Docker to the new Shape
-                    // 		self.docker.setDockedShape( undefined );
-                    // 		self.docker.bounds.centerMoveTo( pos )				
-                    // 		self.docker.setDockedShape( toDockShape );	
-                    // 		//self.docker.update();
-
-                    // 		self.facade.setSelection( [self.docker.parent] );	
-                    // 		self.facade.getCanvas().update();
-                    // 		self.facade.updateSelection();
-
-
-                    // 	}
-                    // });
-
                     // // Instanziate the dockCommand
-                    // var commands = [new dockCommand(docker, position, self.containmentParentNode, self.facade)];
-                    // self.facade.executeCommands(commands);	
-
+                    var commands = [new DockCommand(docker, position, self.containmentParentNode, self.facade)];
+                    self.facade.executeCommands(commands);
 
                     // Check if adding is allowed to the other Shape	
                 } else if (self.isAddingAllowed) {
@@ -246,14 +514,15 @@ class DragDropResize implements IDragDropResize {
         // Disable 
         self.dragEnable = false;
 
-
         // UnRegister on Global Mouse-UP/-Move Event
-        //document.documentElement.removeEventListener(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp, true);
-        var containerNode = angular.element(this.facade.getCanvas().getHTMLContainer());
+        // document.documentElement.removeEventListener(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp, true);
+        var containerNode = angular.element(self.facade.getCanvas().getHTMLContainer());
         containerNode.off(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp);
+        // ((self.facade.getCanvas().getHTMLContainer().removeEventListener(ORYX.CONFIG.EVENT_MOUSEUP, self.callbackMouseUp, true);
         containerNode.off(ORYX.CONFIG.EVENT_MOUSEMOVE, self.callbackMouseMove);
 
-
+        // document.documentElement.removeEventListener(ORYX.CONFIG.EVENT_MOUSEUP, this.callbackMouseUp, true);	
+		// document.documentElement.removeEventListener(ORYX.CONFIG.EVENT_MOUSEMOVE, this.callbackMouseMove, false);				
     }
 
 	/**
@@ -263,7 +532,7 @@ class DragDropResize implements IDragDropResize {
     handleMouseMove(event): void {
         var self = this;
         // If dragging is not enabled, go return
-        if (!self.dragEnable) { return };
+        if (!self.dragEnable) { return; }
         // If Dragging is initialized
         if (self.dragIntialized) {
             // Raise Event: Drag will be started
@@ -275,7 +544,7 @@ class DragDropResize implements IDragDropResize {
             self.resizerNW.hide();
 
             // if only edges are selected, containmentParentNode must be the canvas
-            self._onlyEdges = self.currentShapes.filter(function (currentShape) {
+            self._onlyEdges = self.currentShapes.every(function (currentShape) {
                 return (currentShape instanceof ORYX.Core.Edge);
             });
 
@@ -441,7 +710,7 @@ class DragDropResize implements IDragDropResize {
 	/**
 	 *  Checks the containment and connection rules for the selected shapes.
 	 */
-    checkRules(options):void {
+    checkRules(options): void {
         var self = this;
 
         var event = options.event;
@@ -457,7 +726,7 @@ class DragDropResize implements IDragDropResize {
                 (((node instanceof ORYX.Core.Node) || ((node instanceof ORYX.Core.Edge) && !noEdges))
                     && (!(self.currentShapes.indexOf(node) > -1 ||
                         self.currentShapes.some(function (shape) {
-                            return (shape.children.length > 0 && shape.getChildNodes(true).member(node));
+                            return (shape.children.length > 0 && shape.getChildNodes(true).indexOf(node)>-1);
                         }))));
         });
 
@@ -510,7 +779,7 @@ class DragDropResize implements IDragDropResize {
 	 * Redraw the selected Shapes.
 	 *
 	 */
-    refreshSelectedShapes():void {
+    refreshSelectedShapes(): void {
         var self = this;
         // If the selection bounds not initialized, return
         if (!self.dragBounds) { return }
@@ -524,13 +793,15 @@ class DragDropResize implements IDragDropResize {
         };
 
         // // Instanciate the dragCommand
-        // var commands = [new ORYX.Core.Command.Move(self.toMoveShapes, offset, self.containmentParentNode, self.currentShapes, self)];
-        // // If the undocked edges command is setted, add self command
-        // if( self._undockedEdgesCommand instanceof ORYX.Core.Command ){
-        // 	commands.unshift( self._undockedEdgesCommand );
-        // }
+        var commands = [new MoveCommand(self.toMoveShapes, offset, self.containmentParentNode, self.currentShapes, self)];
+
+        // If the undocked edges command is setted, add this command
+        if (self._undockedEdgesCommand instanceof ORYX.Core.Command) {
+            commands.unshift(self._undockedEdgesCommand);
+        }
+
         // // Execute the commands			
-        // self.facade.executeCommands( commands );	
+        self.facade.executeCommands(commands);
 
         // copy the bounds to the old bounds
         if (self.dragBounds)
@@ -542,7 +813,7 @@ class DragDropResize implements IDragDropResize {
 	 * Callback for Resize
 	 *
 	 */
-    onResize(bounds):void {
+    onResize(bounds): void {
         var self = this;
         // If the selection bounds not initialized, return
         if (!self.dragBounds) { return }
@@ -554,62 +825,18 @@ class DragDropResize implements IDragDropResize {
         self.resizeRectangle(self.dragBounds);
     }
 
-    onResizeStart():void {
+    onResizeStart(): void {
         var self = this;
         self.facade.raiseEvent({ type: ORYX.CONFIG.EVENT_RESIZE_START });
     }
 
-    onResizeEnd():void {
+    onResizeEnd(): void {
         var self = this;
         if (!(self.currentShapes instanceof Array) || self.currentShapes.length <= 0) {
             return;
         }
-
         // If Resizing finished, the Shapes will be resize
         if (self.isResizing) {
-
-            // var commandClass = ORYX.Core.Command.extend({
-            //     construct(shape, newBounds, plugin) {
-            //         self.shape = shape;
-            //         self.oldBounds = shape.bounds.clone();
-            //         self.newBounds = newBounds;
-            //         self.plugin = plugin;
-            //     },
-            //     execute() {
-            //         self.shape.bounds.set(self.newBounds.a, self.newBounds.b);
-            //         self.update(self.getOffset(self.oldBounds, self.newBounds));
-
-            //     },
-            //     rollback() {
-            //         self.shape.bounds.set(self.oldBounds.a, self.oldBounds.b);
-            //         self.update(self.getOffset(self.newBounds, self.oldBounds))
-            //     },
-
-            //     getOffset: function (b1, b2) {
-            //         return {
-            //             x: b2.a.x - b1.a.x,
-            //             y: b2.a.y - b1.a.y,
-            //             xs: b2.width() / b1.width(),
-            //             ys: b2.height() / b1.height()
-            //         }
-            //     },
-            //     update: function (offset) {
-            //         self.shape.getLabels().each(function (label) {
-            //             label.changed();
-            //         });
-
-            //         var allEdges = [].concat(self.shape.getIncomingShapes())
-            //             .concat(self.shape.getOutgoingShapes())
-            //             // Remove all edges which are included in the selection from the list
-            //             .findAll(function (r) { return r instanceof ORYX.Core.Edge }.bind(self))
-
-            //         self.plugin.layoutEdges(self.shape, allEdges, offset);
-
-            //         self.plugin.facade.setSelection([self.shape]);
-            //         self.plugin.facade.getCanvas().update();
-            //         self.plugin.facade.updateSelection();
-            //     }
-            // });
 
             var bounds = self.dragBounds.clone();
             var shape = self.currentShapes[0];
@@ -619,22 +846,19 @@ class DragDropResize implements IDragDropResize {
                 bounds.moveBy(-parentPosition.x, -parentPosition.y);
             }
 
-            //var command = new commandClass(shape, bounds, self);
-
-            //self.facade.executeCommands([command]);
-
+            var command = new ResizeCommand(shape, bounds, self);
+            self.facade.executeCommands([command]);
             self.isResizing = false;
-
             self.facade.raiseEvent({ type: ORYX.CONFIG.EVENT_RESIZE_END });
         }
     }
-	
+
 
 	/**
 	 * Prepare the Dragging
 	 *
 	 */
-    beforeDrag():void {
+    beforeDrag(): void {
         var self = this;
 
         // var undockEdgeCommand = ORYX.Core.Command.extend({
@@ -655,22 +879,22 @@ class DragDropResize implements IDragDropResize {
         //     }
         // });
 
-        // self._undockedEdgesCommand = new undockEdgeCommand(self.toMoveShapes);
-        // self._undockedEdgesCommand.execute();
+        self._undockedEdgesCommand = new UndockEdgeCommand(self.toMoveShapes);
+        self._undockedEdgesCommand.execute();
 
     }
 
-    hideAllLabels(shape):void {
+    hideAllLabels(shape): void {
         var self = this;
         // Hide all labels from the shape
         shape.getLabels().forEach(function (label) {
             label.hide();
         });
         // Hide all labels from docked shapes
-        shape.getAllDockedShapes().each(function (dockedShape) {
+        shape.getAllDockedShapes().forEach(function (dockedShape) {
             var labels = dockedShape.getLabels();
             if (labels.length > 0) {
-                labels.each(function (label) {
+                labels.forEach(function (label) {
                     label.hide();
                 });
             }
@@ -678,7 +902,7 @@ class DragDropResize implements IDragDropResize {
 
         // Do self recursive for all child shapes
         // EXP-NICO use getShapes
-        shape.getChildren().each(function (value) {
+        shape.getChildren().forEach(function (value) {
             if (value instanceof ORYX.Core.Shape)
                 self.hideAllLabels(value);
         });
@@ -688,7 +912,7 @@ class DragDropResize implements IDragDropResize {
 	 * Finished the Dragging
 	 *
 	 */
-    afterDrag():void {
+    afterDrag(): void {
 
     }
 
@@ -696,7 +920,7 @@ class DragDropResize implements IDragDropResize {
 	 * Show all Labels at these shape
 	 * 
 	 */
-    showAllLabels(shape):void {
+    showAllLabels(shape): void {
         var self = this;
         // Show the label of these shape
         //shape.getLabels().each(function(label) {
@@ -711,7 +935,7 @@ class DragDropResize implements IDragDropResize {
             var dockedShape = allDockedShapes[i];
             var labels = dockedShape.getLabels();
             if (labels.length > 0) {
-                labels.each(function (label) {
+                labels.forEach(function (label) {
                     label.show();
                 });
             }
@@ -741,7 +965,7 @@ class DragDropResize implements IDragDropResize {
 	 * On the Selection-Changed
 	 *
 	 */
-    onSelectionChanged(event):void {
+    onSelectionChanged(event): void {
         var self = this;
         var elements = event.elements;
 
@@ -770,7 +994,7 @@ class DragDropResize implements IDragDropResize {
 
             self.toMoveShapes = self.toMoveShapes.filter(function (shape) {
                 return shape instanceof ORYX.Core.Node &&
-                    (shape.dockers.length === 0 || !elements.member(shape.dockers.first().getDockedShape()))
+                    (shape.dockers.length === 0 || elements.indexOf(shape.dockers[0].getDockedShape())==-1)
             });
 
             elements.forEach(function (shape) {
@@ -778,25 +1002,22 @@ class DragDropResize implements IDragDropResize {
 
                 var dks = shape.getDockers()
 
-                var hasF = elements.member(dks.first().getDockedShape());
-                var hasL = elements.member(dks.last().getDockedShape());
+                var firstDockedShape = dks && dks.length ? dks[0].getDockedShape() : null;
+                var lastDockedShape = dks && dks.length ? dks[dks.length - 1].getDockedShape() : null;
 
-                //				if(!hasL) {
-                //					self.toMoveShapes.push(dks.last());
-                //				}
-                //				if(!hasF){
-                //					self.toMoveShapes.push(dks.first())
-                //				} 
+                var hasF = firstDockedShape ? elements.indexOf(firstDockedShape) : -1;
+                var hasL = lastDockedShape ? elements.indexOf(lastDockedShape) : -1;
+
                 /* Enable movement of undocked edges */
-                if (!hasF && !hasL) {
-                    var isUndocked = !dks.first().getDockedShape() && !dks.last().getDockedShape()
+                if (hasF == -1 && hasL == -1) {
+                    var isUndocked = !firstDockedShape && !lastDockedShape
                     if (isUndocked) {
                         self.toMoveShapes = self.toMoveShapes.concat(dks);
                     }
                 }
 
-                if (shape.dockers.length > 2 && hasF && hasL) {
-                    self.toMoveShapes = self.toMoveShapes.concat(dks.findAll(function (el, index) { return index > 0 && index < dks.length - 1 }))
+                if (shape.dockers.length > 2 && hasF > -1 && hasL > -1) {
+                    self.toMoveShapes = self.toMoveShapes.concat(dks.filter(function (el, index) { return index > 0 && index < dks.length - 1 }))
                 }
 
             });
@@ -856,7 +1077,7 @@ class DragDropResize implements IDragDropResize {
 
                 if (self.distPointTimeout)
                     self.$timeout.cancel(self.distPointTimeout);
-                    //window.clearTimeout(self.distPointTimeout)
+                //window.clearTimeout(self.distPointTimeout)
 
                 self.distPointTimeout = self.$timeout(function () {
                     // Get all the shapes, there will consider at snapping
@@ -864,7 +1085,7 @@ class DragDropResize implements IDragDropResize {
                     var distShapes = self.facade.getCanvas().getChildShapes(true).filter(function (value) {
                         var parentShape = value.parent;
                         while (parentShape) {
-                            if (elements.indexOf(parentShape)>-1) return false;
+                            if (elements.indexOf(parentShape) > -1) return false;
                             parentShape = parentShape.parent
                         }
                         return true;
@@ -910,7 +1131,7 @@ class DragDropResize implements IDragDropResize {
 	 * Adjust an Point to the Snap Points
 	 *
 	 */
-    snapToGrid(position):any {
+    snapToGrid(position): any {
         var self = this;
 
         // Get the current Bounds
@@ -996,17 +1217,15 @@ class DragDropResize implements IDragDropResize {
 
         return ul;
     }
-	
-    showGridLine():void {
+
+    showGridLine(): void {
 
     }
-
-
 	/**
 	 * Redraw of the Rectangle of the SelectedArea
 	 * @param {Object} bounds
 	 */
-    resizeRectangle(bounds):void {
+    resizeRectangle(bounds): void {
         var self = this;
         // Resize the Rectangle
         self.selectedRect.resize(bounds);
@@ -1014,19 +1233,19 @@ class DragDropResize implements IDragDropResize {
 }
 
 export type oryxDragDropResizeFactory = (facade: any) => any;
-oryxDragDropResize.$inject = ["oryxSelectedRectFactory","oryxResizerNodeFactory","oryxGridLineFactory","$timeout"];
-function oryxDragDropResize(oryxSelectedRectFactory:oryxSelectedRectFactory,
-                            oryxResizerNodeFactory:oryxResizerNodeFactory,
-                            oryxGridLineFactory:oryxGridLineFactory,
-                            $timeout:angular.ITimeoutService): oryxDragDropResizeFactory {
-    return (facade: any):any => {
+oryxDragDropResize.$inject = ["oryxSelectedRectFactory", "oryxResizerNodeFactory", "oryxGridLineFactory", "$timeout"];
+function oryxDragDropResize(oryxSelectedRectFactory: oryxSelectedRectFactory,
+    oryxResizerNodeFactory: oryxResizerNodeFactory,
+    oryxGridLineFactory: oryxGridLineFactory,
+    $timeout: angular.ITimeoutService): oryxDragDropResizeFactory {
+    return (facade: any): any => {
 
         return new DragDropResize(facade,
-                        oryxSelectedRectFactory(angular.element(facade.getCanvas().getSvgContainer())),
-                        oryxResizerNodeFactory,
-                        oryxGridLineFactory,
-                        $timeout 
-                    );
+            oryxSelectedRectFactory(angular.element(facade.getCanvas().getSvgContainer())),
+            oryxResizerNodeFactory,
+            oryxGridLineFactory,
+            $timeout
+        );
     }
 }
-angular.module("oryx.dragDrop").factory("oryxDragDropResizeFactory",oryxDragDropResize);
+angular.module("oryx.dragDrop").factory("oryxDragDropResizeFactory", oryxDragDropResize);
