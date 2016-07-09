@@ -186,9 +186,9 @@ class BpmnEditorCanvasController implements IBpmnEditorCanvasController {
         return parentCandidate;
     }
     private selectionShapeChanged = (event: any): void => {
-        var selectedItem: ISelectedItemShape = null;
-        self.selectedShape=null;
         var self = this;
+        var selectedItem: ISelectedItemShape = null;
+        self.selectedShape=null;        
         var shapes = event.elements;
         var canvasSelected = false;
         if (shapes && shapes.length == 0) {
@@ -375,9 +375,9 @@ class BpmnEditorCanvasController implements IBpmnEditorCanvasController {
         var facade= self.oryxEditor._getPluginFacade();
         // Instantiate the class
         var command = self.oryxUpdatePropertyCommandFactory(facade,
-                                                            key,
-                                                            newValue,
+                                                            key,                                                            
                                                             oldValue,
+                                                            newValue,
                                                             self.selectedShape);
         // Execute the command
        facade.executeCommands([command]);

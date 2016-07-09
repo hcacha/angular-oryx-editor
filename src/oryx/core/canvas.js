@@ -794,7 +794,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	 * Calls {@link ORYX.Core.AbstractShape#toJSON} and adds some stencil set information.
 	 */
 	toJSON: function() {
-		var json = arguments.callee.$.toJSON.apply(this, arguments);
+		var json = ORYX.Core.AbstractShape.prototype.toJSON.apply(this, arguments);
 
 		//		if(ORYX.CONFIG.STENCILSET_HANDLER.length > 0) {
 		//			json.stencilset = {
