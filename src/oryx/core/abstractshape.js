@@ -251,7 +251,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 						var candidates = node.getAbstractShapesAtPosition(x, y);
 						if (candidates.length > 0) {
 							var nodesInZOrder = node.node.parentNode.childNodes;
-							var zOrderIndex =Array.prototype.indexOf.call(nodesInZOrder,node.node);
+							var zOrderIndex = Array.prototype.indexOf.call(nodesInZOrder, node.node);
 							nodesAtPosition[zOrderIndex] = candidates;
 						}
 					});
@@ -432,7 +432,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 		 * Converts the shape to a JSON representation.
 		 * @return {Object} A JSON object with included ORYX.Core.AbstractShape.JSONHelper and getShape() method.
 		 */
-		toJSON: function() {
+		toJSON: function(skipDeep) {
 			var self = this;
 			var json = {
 				resourceId: this.resourceId,
@@ -456,7 +456,7 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 				stencil: {
 					id: this.getStencil().idWithoutNs()
 				},
-				childShapes: this.getChildShapes().map(function(shape) {
+				childShapes: skipDeep ? [] : this.getChildShapes().map(function(shape) {
 					return shape.toJSON()
 				})
 			};
@@ -485,15 +485,15 @@ ORYX.Core.AbstractShape = ORYX.Core.UIObject.extend(
 					return d;
 				})
 			}
+			if (!skipDeep) {
+				Object.extend(json, ORYX.Core.AbstractShape.JSONHelper);
 
-			Object.extend(json, ORYX.Core.AbstractShape.JSONHelper);
-
-			// do not pollute the json attributes (for serialization), so put the corresponding
-			// shape is encapsulated in a method
-			json.getShape = function() {
-				return self;
-			};
-
+				// do not pollute the json attributes (for serialization), so put the corresponding
+				// shape is encapsulated in a method
+				json.getShape = function() {
+					return self;
+				};
+			}
 			return json;
 		}
 	});

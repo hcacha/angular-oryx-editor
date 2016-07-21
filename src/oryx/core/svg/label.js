@@ -715,12 +715,13 @@ ORYX.Core.SVG.Label = Clazz.extend({
 	 * @param {String} text
 	 */
 	getTrimmedTextLength: function(text) {
-		text = text.strip().gsub('  ', ' ');
+		//text = text.strip().gsub('  ', ' ');
+		text = text.trim().replace('  ', ' ');
 		
 		var oldLength;
 		do {
 			oldLength = text.length;
-			text = text.gsub('  ', ' ');
+			text = text.replace('  ', ' ');
 		} while (oldLength > text.length);
 
 		return text.length;

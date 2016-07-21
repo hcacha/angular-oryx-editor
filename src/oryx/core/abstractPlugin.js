@@ -190,9 +190,9 @@ ORYX.Core.AbstractPlugin = (function() {
             center.y += node.bounds.height() / 2;
 
             // Get the old absolute center
-            oldCenter = Object.clone(center);
-            oldCenter.x -= offset ? offset.x : 0;
-            oldCenter.y -= offset ? offset.y : 0;
+            this.oldCenter = Object.clone(center);
+            this.oldCenter.x -= offset ? offset.x : 0;
+            this.oldCenter.y -= offset ? offset.y : 0;
 
             var ul = {
                 x: center.x - (node.bounds.width() / 2),

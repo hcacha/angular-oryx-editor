@@ -73,13 +73,13 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 
 		this.edges = [];
 
-		this.rootNode=options.parentNode?options.parentNode.querySelector("svg"):null; 
+		this.rootNode = options.parentNode ? options.parentNode.querySelector("svg") : null;
 
 		//init svg document
 		if (this.rootNode) {
-			this.rootNode.setAttribute("id",this.id);
-			this.rootNode.setAttribute("width",options.width);
-			this.rootNode.setAttribute("height",options.height);
+			this.rootNode.setAttribute("id", this.id);
+			this.rootNode.setAttribute("width", options.width);
+			this.rootNode.setAttribute("height", options.height);
 		} else {
 			this.rootNode = ORYX.Editor.graft("http://www.w3.org/2000/svg", options.parentNode, ['svg', {
 					id: this.id,
@@ -166,7 +166,9 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 			return false;
 		};
 	},
-
+	setModel: function(model) {
+		this.model = model;
+	},
 	focus: function() {
 		// Get a href
 		if (!this.headerA) {
@@ -205,18 +207,78 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 				// do layouting
 
 				self._delegateEvent(event);
-			})
+			});
 		}
+		if (self.model) {
+			if (self.isChanged) {
+				var canvasModel = self.toJSON(true);
+				canvasModel.childShapes = self.model.childShapes;
+				Object.extend(self.model, canvasModel);
 
-		this.nodes.invoke("_update");
+			}
+			self.children.forEach(function(child) {
+				var isChanged = child.isChanged;
+				if (child instanceof ORYX.Core.Edge) {
+					child._update(true);
+				} else if (child instanceof ORYX.Core.Node) {
+					child._update(true);
+				}
+				var childShape = self.model.childShapes.find(function(item) {
+					return item.resourceId == child.resourceId;
+				});
+				if (isChanged) {
+					if (child instanceof ORYX.Core.Edge || child instanceof ORYX.Core.Node) {
+						if (childShape) {
+							var childModel = child.toJSON(true);
+							childModel.childShapes = childShape.childShapes;
+							Object.extend(childShape, childModel);
+						} else {
+							childShape = child.toJSON(true);
+							self.model.childShapes.push(childShape);
+						}
+					}
+				}
+				self._updateChildren(child.children, childShape ? childShape.childShapes : null);
+			});
 
-		this.edges.invoke("_update", true);
+		} else {
+			this.nodes.invoke("_update");
+
+			this.edges.invoke("_update", true);
+		}
 
 		/*this.children.each(function(child) {
 			child._update();
 		});*/
 	},
+	_updateChildren: function(children, childShapes) {
+		var self = this;
+		children.forEach(function(child) {
+			var isChanged = child.isChanged;
+			if (child instanceof ORYX.Core.Edge) {
+				child._update(true);
+			} else if (child instanceof ORYX.Core.Node) {
+				child._update(true);
+			}
+			var childShape = childShapes.find(function(item) {
+				return item.resourceId == child.resourceId;
+			});
+			if (isChanged && childShapes) {
+				if (child instanceof ORYX.Core.Edge || child instanceof ORYX.Core.Node) {
+					if (childShape) {
+						var childModel = child.toJSON(true);
+						childModel.childShapes = childShape.childShapes;
+						Object.extend(childShape, childModel);
+					} else {
+						childShape = child.toJSON(true);
+						childShapes.push(childShape);
+					}
+				}
+			}
+			self._updateChildren(child.children, childShape ? childShape.childShapes : null);
 
+		});
+	},
 	_traverseForUpdate: function(shape) {
 		var self = this;
 		var childRet = shape.isChanged;
@@ -337,7 +399,9 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 		//if uiObject is a child of this object, remove it.
 		if (this.children.indexOf(uiObject) > -1) {
 			//remove uiObject from children
-			this.children = this.children.without(uiObject);
+			this.children = this.children.filter(function(item) {
+				return item !== uiObject;
+			});
 
 			//delete parent reference of uiObject
 			uiObject.parent = undefined;
@@ -347,10 +411,14 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 				if (uiObject instanceof ORYX.Core.Edge) {
 					uiObject.removeMarkers();
 					uiObject.node = this.node.childNodes[0].childNodes[2].removeChild(uiObject.node);
-					this.edges = this.edges.without(uiObject);
+					this.edges = this.edges.filter(function(item) {
+						return item !== uiObject;
+					});
 				} else {
 					uiObject.node = this.node.childNodes[0].childNodes[1].removeChild(uiObject.node);
-					this.nodes = this.nodes.without(uiObject);
+					this.nodes = this.nodes.filter(function(item) {
+						return item !== uiObject;
+					});
 				}
 			} else { //UIObject
 				uiObject.node = this.node.removeChild(uiObject.node);
@@ -793,7 +861,7 @@ ORYX.Core.Canvas = ORYX.Core.AbstractShape.extend({
 	/**
 	 * Calls {@link ORYX.Core.AbstractShape#toJSON} and adds some stencil set information.
 	 */
-	toJSON: function() {
+	toJSON: function(skipDeep) {
 		var json = ORYX.Core.AbstractShape.prototype.toJSON.apply(this, arguments);
 
 		//		if(ORYX.CONFIG.STENCILSET_HANDLER.length > 0) {

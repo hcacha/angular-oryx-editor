@@ -85,9 +85,11 @@ var JsonObjectCommand = (function (_super) {
     JsonObjectCommand.prototype.rollback = function () {
 		var self = this;
 		var selection = self.facade.getSelection();
-
+		//without
 		self.shapes.forEach(function(shape) {
-			selection = selection.without(shape);
+			selection = selection.filter(function(item){
+				return item!=shape;
+			});
 			self.facade.deleteShape(shape);
 		});	
 
@@ -798,6 +800,7 @@ ORYX.Editor = {
 			parentNode: parentNode || div,
 			createHtmlContainer: this.defaults.createCanvasWrapper
 		}, canvasStencil);
+		this._canvas.setModel(this.modelMetaData.model?this.modelMetaData.model:this.modelMetaData);
 
 		if (canvasConfig) {
 			// Migrate canvasConfig to an RDF-like structure
@@ -1307,8 +1310,11 @@ ORYX.Editor = {
 	},
 
 	unregisterOnEvent: function(eventType, callback) {
+		//without
 		if (this.DOMEventListeners.keys().indexOf(eventType) > -1) {
-			this.DOMEventListeners[eventType] = this.DOMEventListeners[eventType].without(callback);
+			this.DOMEventListeners[eventType] = this.DOMEventListeners[eventType].filter(function(item){
+				return item!=callback;
+			});
 		} else {
 			// Event is not supported
 			// TODO: Error Handling
@@ -1874,7 +1880,9 @@ ORYX.Editor = {
 			modifierKeyPressed) {
 
 			var newSelection = this.selection.clone();
-			this.setSelection(newSelection.without(elementController))
+			this.setSelection(newSelection.flter(function(item){
+				return item!=elementController;
+			}));
 
 			ORYX.Log.trace("Rule #6 applied for mouse down on %0", elementController.id);
 

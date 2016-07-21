@@ -290,7 +290,7 @@ ORYX.Core.Edge = {
 					case "endtop":
 						var length = self.dockers.length;
 						var angle = self._getAngle(self.dockers[length - 2], self.dockers[length - 1]);
-						var pos =self.dockers.length?self.dockers[self.dockers.length-1].bounds.center():0;
+						var pos = self.dockers.length ? self.dockers[self.dockers.length - 1].bounds.center() : 0;
 
 						if (angle <= 90 || angle > 270) {
 							label.horizontalAlign("right");
@@ -310,8 +310,8 @@ ORYX.Core.Edge = {
 					case "endbottom":
 						var length = self.dockers.length;
 						var angle = self._getAngle(self.dockers[length - 2], self.dockers[length - 1]);
-						var pos =self.dockers.length?self.dockers[self.dockers.length-1].bounds.center():0;
-						
+						var pos = self.dockers.length ? self.dockers[self.dockers.length - 1].bounds.center() : 0;
+
 						if (angle <= 90 || angle > 270) {
 							label.horizontalAlign("right");
 							label.verticalAlign("top");
@@ -658,7 +658,7 @@ ORYX.Core.Edge = {
 		this._update(true);
 
 		var firstPoint = this.dockers[0].bounds.center();
-		var lastPoint = this.dockers[this.dockers.length-1].bounds.center();
+		var lastPoint = this.dockers[this.dockers.length - 1].bounds.center();
 
 		var deltaX = lastPoint.x - firstPoint.x;
 		var deltaY = lastPoint.y - firstPoint.y;
@@ -774,11 +774,15 @@ ORYX.Core.Edge = {
 		}
 
 		/* Get elements of the segment */
-		var elementsOfSegment =
-			this.attachedNodePositionData.filter(function(nodePositionData) {
-				return nodePositionData.value.segment.docker1 === startDocker &&
-					nodePositionData.value.segment.docker2 === endDocker;
-			});
+		var elementsOfSegment = [];
+
+
+		this.attachedNodePositionData._each(function(nodePositionData) {
+			if(nodePositionData.value.segment.docker1 === startDocker &&
+				nodePositionData.value.segment.docker2 === endDocker){
+					elementsOfSegment.push(nodePositionData);
+			}			
+		});
 
 		/* Return a Hash in each case */
 		if (!elementsOfSegment) {
@@ -818,7 +822,7 @@ ORYX.Core.Edge = {
 			return;
 		}
 
-		this.attachedNodePositionData.forEach(function(nodePositionData) {
+		this.attachedNodePositionData._each(function(nodePositionData) {
 			if (nodePositionData.value.segment.docker1 === docker) {
 				/* The new start of the segment is the predecessor of docker2. */
 				var index = self.dockers.indexOf(nodePositionData.value.segment.docker2);
@@ -890,23 +894,24 @@ ORYX.Core.Edge = {
 	},
 
 	removeDocker: function(docker) {
+		var self=this;
 		if (this.dockers.length > 2 && !(this.dockers[0] === docker)) {
-			this._dockersByPath.any((function(pair) {
-				if (pair.value.indexOf(docker)>-1) {
-					if (docker === pair.value[pair.value.length-1]) {
+			this._dockersByPath.any(function(pair) {
+				if (pair.value.indexOf(docker) > -1) {
+					if (docker === pair.value[pair.value.length - 1]) {
 						return true;
 					} else {
-						this.remove(docker);
-						this._dockersByPath[pair.key] = pair.value.filter(function(item){
-							return item!=docker;
+						self.remove(docker);
+						self._dockersByPath[pair.key] = pair.value.filter(function(item) {
+							return item != docker;
 						});
-						this.isChanged = true;
-						this._dockerChanged();
+						self.isChanged = true;
+						self._dockerChanged();
 						return true;
 					}
 				}
 				return false;
-			}).bind(this));
+			});
 		}
 	},
 
@@ -941,7 +946,7 @@ ORYX.Core.Edge = {
 			}
 		});
 
-		marked.each(function(docker) {
+		marked._each(function(docker) {
 			self.removeDocker(docker.value);
 		});
 
@@ -1273,9 +1278,9 @@ ORYX.Core.Edge = {
 		//}
 
 		//serialize target and source
-		var lastDocker = this.dockers.length?this.dockers[this.dockers.length-1]:null;
+		var lastDocker = this.dockers.length ? this.dockers[this.dockers.length - 1] : null;
 
-		var target =lastDocker?lastDocker.getDockedShape():null;
+		var target = lastDocker ? lastDocker.getDockedShape() : null;
 
 		if (target) {
 			result.push({
@@ -1390,8 +1395,8 @@ ORYX.Core.Edge = {
 
 			dataByPath.forEach(function(data, index) {
 				if (data == "" || data == " ") return;
-				var values = data.replace(/,/g, " ").split(" ").filter(function(item){
-					return item!='';
+				var values = data.replace(/,/g, " ").split(" ").filter(function(item) {
+					return item != '';
 				});
 
 				//for each docker two values must be defined
@@ -1471,7 +1476,7 @@ ORYX.Core.Edge = {
 	 * @return {ORYX.Core.Shape} Returns last docked shape or null.
 	 */
 	getTarget: function() {
-		return this.dockers[this.dockers.length-1] ? this.dockers[this.dockers.length-1].getDockedShape() : null;
+		return this.dockers[this.dockers.length - 1] ? this.dockers[this.dockers.length - 1].getDockedShape() : null;
 	},
 
 	/**
@@ -1501,7 +1506,7 @@ ORYX.Core.Edge = {
 	 * Calls {@link ORYX.Core.AbstractShape#toJSON} and add a some stencil set information.
 	 */
 	toJSON: function() {
-		var json = arguments.callee.$.toJSON.apply(this, arguments);
+		var json = ORYX.Core.Shape.prototype.toJSON.apply(this, arguments);
 
 		if (this.getTarget()) {
 			json.target = {

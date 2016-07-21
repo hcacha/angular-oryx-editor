@@ -114,9 +114,9 @@
  *      obj.size();
  *      // etc.
  *
-**/
+ **/
 
-var $break = { };
+var $break = {};
 
 var Enumerable = (function() {
   /**
@@ -146,12 +146,14 @@ var Enumerable = (function() {
    *        return student.name;
    *      });
    *      // -> [['Sunny', 'Audrey', 'Matt'], ['Amelie', 'Will']]
-  **/
+   **/
   function eachSlice(number, iterator, context) {
-    var index = -number, slices = [], array = this.toArray();
+    var index = -number,
+      slices = [],
+      array = this.toArray();
     if (number < 1) return array;
     while ((index += number) < array.length)
-      slices.push(array.slice(index, index+number));
+      slices.push(array.slice(index, index + number));
     return slices.collect(iterator, context);
   }
   /**
@@ -176,7 +178,7 @@ var Enumerable = (function() {
    *        return n * n;
    *      });
    *      // -> [1, 4, 9, 16, 25]
-  **/
+   **/
   function collect(iterator, context) {
     iterator = iterator || Prototype.K;
     var results = [];
@@ -215,7 +217,7 @@ var Enumerable = (function() {
    *      // Get all numbers ending with 0 or 5 and subtract 1 from them
    *      $R(1, 30).grep(/[05]$/, function(n) { return n - 1; });
    *      // -> [4, 9, 14, 19, 24, 29]
-  **/
+   **/
   function grep(filter, iterator, context) {
     iterator = iterator || Prototype.K;
     var results = [];
@@ -248,7 +250,7 @@ var Enumerable = (function() {
    *
    *      [1, 2, '3', '4', '5'].include(3);
    *      // -> true ('3' == 3)
-  **/
+   **/
   function include(object) {
     if (Object.isFunction(this.indexOf) && this.indexOf(object) != -1)
       return true;
@@ -262,7 +264,7 @@ var Enumerable = (function() {
     });
     return found;
   }
- 
+
   /**
    *  Enumerable#inject(accumulator, iterator[, context]) -> accumulatedValue
    *  - accumulator (?): The initial value to which the `iterator` adds.
@@ -292,7 +294,7 @@ var Enumerable = (function() {
    *        return string;
    *      });
    *      // -> 'ace'
-  **/
+   **/
   function inject(memo, iterator, context) {
     this._each(function(value, index) {
       memo = iterator.call(context, memo, value, index, this);
@@ -319,9 +321,9 @@ var Enumerable = (function() {
    *      $$('input').invoke('stopObserving', 'change');
    *      // -> Stops observing the 'change' event on all input elements,
    *      // returns an array of the element references.
-  **/
+   **/
   function invoke(method) {
-    var args=Array.prototype.slice.call(arguments, 1);
+    var args = Array.prototype.slice.call(arguments, 1);
     //var args = arguments.slice(1);
     return this.map(function(value) {
       return value[method].apply(value, args);
@@ -356,7 +358,7 @@ var Enumerable = (function() {
    *
    *      ['zero', 'one', 'two'].max(function(item) { return item.length; });
    *      // -> 4
-  **/
+   **/
   function max(iterator, context) {
     iterator = iterator || Prototype.K;
     var result;
@@ -396,7 +398,7 @@ var Enumerable = (function() {
    *
    *      ['un', 'deux', 'trois'].min(function(item) { return item.length; });
    *      // -> 2
-  **/
+   **/
   function min(iterator, context) {
     iterator = iterator || Prototype.K;
     var result;
@@ -434,10 +436,11 @@ var Enumerable = (function() {
    *        return 0 == n % 2;
    *      });
    *      // -> [[2, 4, 6, 8, 10], [1, 3, 5, 7, 9]]
-  **/
+   **/
   function partition(iterator, context) {
     iterator = iterator || Prototype.K;
-    var trues = [], falses = [];
+    var trues = [],
+      falses = [];
     this.each(function(value, index) {
       (iterator.call(context, value, index, this) ?
         trues : falses).push(value);
@@ -457,7 +460,7 @@ var Enumerable = (function() {
    *
    *      ['hello', 'world', 'this', 'is', 'nice'].pluck('length');
    *      // -> [5, 5, 4, 2, 4]
-  **/
+   **/
   function pluck(property) {
     var results = [];
     this._each(function(value) {
@@ -479,7 +482,7 @@ var Enumerable = (function() {
    *
    *      [1, "two", 3, "four", 5].reject(Object.isString);
    *      // -> [1, 3, 5]
-  **/
+   **/
   function reject(iterator, context) {
     var results = [];
     this.each(function(value, index) {
@@ -510,7 +513,7 @@ var Enumerable = (function() {
    *        return s.length;
    *      });
    *      // -> ['is', 'nice', 'this', 'world', 'hello']
-  **/
+   **/
   function sortBy(iterator, context) {
     return this.map(function(value, index) {
       return {
@@ -518,7 +521,8 @@ var Enumerable = (function() {
         criteria: iterator.call(context, value, index, this)
       };
     }, this).sort(function(left, right) {
-      var a = left.criteria, b = right.criteria;
+      var a = left.criteria,
+        b = right.criteria;
       return a < b ? -1 : a > b ? 1 : 0;
     }).pluck('value');
   }
@@ -535,7 +539,7 @@ var Enumerable = (function() {
    *
    *      $H({ name: 'Sunny', age: 20 }).toArray();
    *      // -> [['name', 'Sunny'], ['age', 20]]
-  **/
+   **/
   function toArray() {
     return this.map();
   }
@@ -571,7 +575,7 @@ var Enumerable = (function() {
    *        return tuple[0] + ' ' + tuple[1] + ' is ' + tuple[2];
    *      });
    *      // -> ['Jane Doe is 23', 'Nitin Patel is 41', 'Guy Forcier is 17']
-  **/
+   **/
   // function zip() {
   //   var iterator = Prototype.K, args = $A(arguments);
   //   if (Object.isFunction(args.last()))
@@ -587,7 +591,7 @@ var Enumerable = (function() {
    *  Enumerable#size() -> Number
    *
    *  Returns the size of the enumeration.
-  **/
+   **/
   function size() {
     return this.toArray().length;
   }
@@ -596,21 +600,42 @@ var Enumerable = (function() {
    *  Enumerable#inspect() -> String
    *
    *  Returns the debug-oriented string representation of the object.
-  **/
+   **/
   function inspect() {
     return '#<Enumerable:' + this.toArray().inspect() + '>';
   }
 
+  function each(iterator, context) {
+    try {
+      this._each(iterator, context);
+    } catch (e) {
+      if (e != $break) throw e;
+    }
+    return this;
+  }
+
+  function any(iterator, context) {
+    iterator = iterator || Prototype.K;
+    var result = false;
+    this.each(function(value, index) {
+      if (result = !!iterator.call(context, value, index, this))
+        throw $break;
+    }, this);
+    return result;
+  }
+
   return {
-    eachSlice:  eachSlice,
-    grep:       grep,
-    include:    include,
-    inject:     inject,
-    invoke:     invoke,
-    max:        max,
-    min:        min,
-    partition:  partition,
-    pluck:      pluck,
-    inspect:    inspect    
+    eachSlice: eachSlice,
+    grep: grep,
+    include: include,
+    inject: inject,
+    invoke: invoke,
+    max: max,
+    min: min,
+    partition: partition,
+    pluck: pluck,
+    inspect: inspect,
+    any:any,
+    each:each
   };
 })();

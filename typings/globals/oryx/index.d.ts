@@ -6,6 +6,7 @@ declare namespace oryx {
     }
     interface ICanvas{
         new():ICanvas;
+        getRootNode():any;
     }
     interface IUIObject{
         new():IUIObject;

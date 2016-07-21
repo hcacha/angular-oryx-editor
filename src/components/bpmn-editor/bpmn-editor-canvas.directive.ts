@@ -4,6 +4,7 @@ import {oryxBpmnEditorFactory} from './bpmn-editor-oryx.factory';
 import {oryxAddShapeCommandFactory} from './bpmn-editor-add-shape-command.factory';
 import {IBpmnEditorPropertyConfigService, IProperty} from './bpmn-editor-property-config.provider';
 import {oryxUpdatePropertyCommandFactory} from './bpmn-editor-update-property-command.factory';
+import {ICommonUtilDomService} from '../common/common-util-dom.service';
 
 export interface IBpmnEditorCanvasController {
     reloadModel($element: angular.IAugmentedJQuery,
@@ -12,8 +13,8 @@ export interface IBpmnEditorCanvasController {
     getCanvas(): any;
     onDropComplete($event: any, $data: any): void;
     getModelMetaData();
-    updatePropertyShape(selectedItemShape: ISelectedItemShape,property:any): any;
-    dispose():void;
+    updatePropertyShape(selectedItemShape: ISelectedItemShape, property: any): any;
+    dispose(): void;
 }
 export interface ISelectedItemProperty {
     key: string;
@@ -46,7 +47,7 @@ class BpmnEditorCanvasController implements IBpmnEditorCanvasController {
     private modelData: any;
     private stencilSetData: any;
     private oryxEditor: ORYX.IEditor;
-    private selectedShape:ORYX.IShape;
+    private selectedShape: ORYX.IShape;
 
     constructor(private oryxBpmnEditorFactory: oryxBpmnEditorFactory,
         private oryxAddShapeCommandFactory: oryxAddShapeCommandFactory,
@@ -188,7 +189,7 @@ class BpmnEditorCanvasController implements IBpmnEditorCanvasController {
     private selectionShapeChanged = (event: any): void => {
         var self = this;
         var selectedItem: ISelectedItemShape = null;
-        self.selectedShape=null;        
+        self.selectedShape = null;
         var shapes = event.elements;
         var canvasSelected = false;
         if (shapes && shapes.length == 0) {
@@ -366,29 +367,31 @@ class BpmnEditorCanvasController implements IBpmnEditorCanvasController {
         var self = this;
         return self.oryxEditor ? self.oryxEditor.getModelMetaData() : null;
     }
-    updatePropertyShape(selectedItemShape: ISelectedItemShape,property:any): any {
+    updatePropertyShape(selectedItemShape: ISelectedItemShape, property: any): any {
         var self = this;
-        if(!self.selectedShape) return;
-        var key=property.key;
+        if (!self.selectedShape) return;
+        var key = property.key;
         var newValue = property.value;
-        var oldValue = selectedItemShape.properties[key];
-        var facade= self.oryxEditor._getPluginFacade();
-        // Instantiate the class
-        var command = self.oryxUpdatePropertyCommandFactory(facade,
-                                                            key,                                                            
-                                                            oldValue,
-                                                            newValue,
-                                                            self.selectedShape);
-        // Execute the command
-       facade.executeCommands([command]);
+        var oldValue = self.selectedShape.properties[key]
+        if (newValue !== oldValue) {
+            var facade = self.oryxEditor._getPluginFacade();
+            // Instantiate the class
+            var command = self.oryxUpdatePropertyCommandFactory(facade,
+                key,
+                oldValue,
+                newValue,
+                self.selectedShape);
+            // Execute the command
+            facade.executeCommands([command]);
+        }
     }
-    dispose():void{
-         var self = this;
-         self.oryxEditor.unregisterOnEvent(ORYX.CONFIG.EVENT_SELECTION_CHANGED, self.selectionShapeChanged);
+    dispose(): void {
+        var self = this;
+        self.oryxEditor.unregisterOnEvent(ORYX.CONFIG.EVENT_SELECTION_CHANGED, self.selectionShapeChanged);
     }
 }
 
-@angular.typescript.decorators.directive("$timeout", "$window")
+@angular.typescript.decorators.directive("$timeout", "$window", "oryxCommonUtilDomService")
 class BpmnEditorCanvasDirective implements angular.IDirective {
     restrict: string = "E";
     scope: Object = {
@@ -411,14 +414,15 @@ class BpmnEditorCanvasDirective implements angular.IDirective {
     controllerAs: string = "bpmnEditorCanvasController";
 
     constructor(private $timeout: angular.ITimeoutService,
-        private $window: angular.IWindowService) {
+        private $window: angular.IWindowService,
+        private oryxCommonUtilDomService: ICommonUtilDomService) {
 
     }
 
     public link: Function = (scope: angular.IScope, element: angular.IAugmentedJQuery, attrs, controller: IBpmnEditorCanvasController): void => {
         var self = this;
-        var positions = element[0].getBoundingClientRect();
-        var availableWidth = self.$window.innerWidth - positions.left;
+        var firstLoad = true;
+        var offsetRight = self.$window.innerWidth - (self.oryxCommonUtilDomService.offset(element).left + self.oryxCommonUtilDomService.outerElementWidth(element));
 
         scope.$watch(function () {
             return (<any>scope).modelData;
@@ -431,6 +435,10 @@ class BpmnEditorCanvasDirective implements angular.IDirective {
                 self.$timeout(function () {
                     var canvas = controller.getCanvas();
                     canvas.update();
+                    if (firstLoad) {
+                        self.autoResizeElement(element, offsetRight);
+                        firstLoad = false;
+                    }
                 });
             }
         });
@@ -438,15 +446,29 @@ class BpmnEditorCanvasDirective implements angular.IDirective {
         scope.$on("bpmn-editor-canvas:selectionShapeChanged", function (ev: angular.IAngularEvent, data: any) {
             (<any>scope).selectedItemShape = data;
         });
-        scope.$on("bpmn-editor-canvas:updatePropertyShape", function (ev: angular.IAngularEvent, property:any) {
-            if(property && (<any>scope).selectedItemShape){
-                controller.updatePropertyShape((<any>scope).selectedItemShape,property);
+        scope.$on("bpmn-editor-canvas:updatePropertyShape", function (ev: angular.IAngularEvent, property: any) {
+            if (property && (<any>scope).selectedItemShape) {
+                controller.updatePropertyShape((<any>scope).selectedItemShape, property);
             }
         });
+        var bpmnEditorResize = (): void => {
+            self.autoResizeElement(element, offsetRight);
+        };
+        angular.element(self.$window).on("resize", bpmnEditorResize);
+
         scope.$on("$destroy", function () {
             controller.dispose();
+            angular.element(self.$window).off("resize", bpmnEditorResize);
             element.remove();
         });
-    }    
+    }
+    private autoResizeElement = (element: angular.IAugmentedJQuery, offsetRight: number): void => {
+        var self = this;
+        var offset = self.oryxCommonUtilDomService.offset(element);
+        var positions = element[0].getBoundingClientRect();
+        var availableWidth = self.$window.innerWidth - positions.left - offsetRight;
+        element.css('width', availableWidth + "px");
+    }
+
 }
 angular.module("oryx.bpmnEditor").directive("oryxBpmnCanvas", <any>BpmnEditorCanvasDirective);

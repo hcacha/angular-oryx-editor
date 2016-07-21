@@ -17,7 +17,9 @@
  *      // Can then be accessed the classic Hash way
  *      h.get('country');
  *      // -> 'Australia'
-**/
+ **/
+66
+
 function $H(object) {
   return new Hash(object);
 };
@@ -42,7 +44,7 @@ function $H(object) {
  *  optionally pass in an object to seed the [[Hash]]. If you pass in a [[Hash]],
  *  it will be cloned.
  *
-**/
+ **/
 var Hash = Clazz.create(Enumerable, (function() {
   /**
    *  new Hash([object])
@@ -90,22 +92,10 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      // Alerts 'version = "1.6"' and 'author = "The Core Team"'
    *      // -or-
    *      // Alerts 'author = "The Core Team"' and 'version = "1.6"'
-  **/
+   **/
 
   // Our _internal_ each
-  function _each(iterator, context) {
-    var i = 0;
-    for (var key in this) {
-        var value = this[key];
-        if (key==="_object" || (value && value == this.__proto__[key])) continue;
-        
-        var pair = [key, value];
-        pair.key = key;
-        pair.value = value;
-        iterator.call(context, pair, i);
-        i++;
-    }
-  }
+
 
   /**
    *  Hash#set(key, value) -> value
@@ -125,7 +115,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      // -> ["a"] (has the new entry)
    *      h.get('a');
    *      // -> "apple"
-  **/
+   **/
   function set(key, value) {
     return this._object[key] = value;
   }
@@ -140,7 +130,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      var h = new Hash({a: 'apple', b: 'banana', c: 'coconut'});
    *      h.get('a');
    *      // -> 'apple'
-  **/
+   **/
   function get(key) {
     // simulating poorly supported hasOwnProperty
     if (this._object[key] !== Object.prototype[key])
@@ -162,7 +152,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      // -> 'apple'
    *      h.keys();
    *      // -> ["b", "c"] ("a" is no longer in the hash)
-  **/
+   **/
   function unset(key) {
     var value = this._object[key];
     delete this._object[key];
@@ -181,19 +171,19 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      var obj = h.toObject();
    *      obj.a;
    *      // -> "apple"
-  **/
+   **/
   function toObject() {
     return Object.clone(this._object);
   }
 
   /** related to: Object.toJSON, alias of: Hash#toObject
    *  Hash#toJSON() -> Object
-  **/
-  
+   **/
+
   /** alias of: Hash#toObject
    *  Hash#toTemplateReplacements() -> Object
-  **/
-  
+   **/
+
   /**
    *  Hash#keys() -> [String...]
    *
@@ -206,7 +196,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      var h = $H({one: "uno", two: "due", three: "tre"});
    *      h.keys();
    *      // -> ["one", "three", "two"] (these may be in any order)
-  **/
+   **/
   function keys() {
     return this.pluck('key');
   }
@@ -223,7 +213,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      var h = $H({one: "uno", two: "due", three: "tre"});
    *      h.values();
    *      // -> ["uno", "tre", "due"] (these may be in any order)
-  **/
+   **/
   function values() {
     return this.pluck('value');
   }
@@ -233,7 +223,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *
    *  Returns the first key in the hash whose value matches `value`.
    *  Returns `false` if there is no such key.
-  **/
+   **/
   function index(value) {
     var match = this.detect(function(pair) {
       return pair.value === value;
@@ -259,7 +249,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      // -> ["one", "two"] (unchanged)
    *      h2.keys();
    *      // -> ["one", "two", "three"] (has merged contents)
-  **/
+   **/
   function merge(object) {
     return this.clone().update(object);
   }
@@ -282,7 +272,7 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      // -> h (a reference to the original hash)
    *      h.keys();
    *      // -> ["one", "two", "three"] (has merged contents)
-  **/
+   **/
   function update(object) {
     return new Hash(object).inject(this, function(result, pair) {
       result.set(pair.key, pair.value);
@@ -293,7 +283,7 @@ var Hash = Clazz.create(Enumerable, (function() {
   // Private. No PDoc necessary.
   function toQueryPair(key, value) {
     if (Object.isUndefined(value)) return key;
-    
+
     value = String.interpret(value);
 
     // Normalize newlines as \r\n because the HTML spec says newlines should
@@ -344,11 +334,12 @@ var Hash = Clazz.create(Enumerable, (function() {
    *      // an empty hash is an empty query string:
    *      $H().toQueryString();
    *      // -> ""
-  **/
+   **/
   function toQueryString() {
     return this.inject([], function(results, pair) {
-      var key = encodeURIComponent(pair.key), values = pair.value;
-      
+      var key = encodeURIComponent(pair.key),
+        values = pair.value;
+
       if (values && typeof values == 'object') {
         if (Object.isArray(values)) {
           // We used to use `Array#map` here to get the query pair for each
@@ -359,7 +350,7 @@ var Hash = Clazz.create(Enumerable, (function() {
           var queryValues = [];
           for (var i = 0, len = values.length, value; i < len; i++) {
             value = values[i];
-            queryValues.push(toQueryPair(key, value));            
+            queryValues.push(toQueryPair(key, value));
           }
           return results.concat(queryValues);
         }
@@ -372,40 +363,54 @@ var Hash = Clazz.create(Enumerable, (function() {
    *  Hash#inspect() -> String
    *
    *  Returns the debug-oriented string representation of the Hash.
-  **/
+   **/
   function inspect() {
     return '#<Hash:{' + this.map(function(pair) {
       return pair.map(Object.inspect).join(': ');
     }).join(', ') + '}>';
   }
 
- /**
+  /**
    *  Hash#clone() -> Hash
    *
    *  Returns a clone of this [[Hash]].
-  **/
+   **/
   function clone() {
     return new Hash(this);
   }
 
   return {
-    initialize:             initialize,
-    _each:                  _each,
-    set:                    set,
-    get:                    get,
-    unset:                  unset,
-    toObject:               toObject,
+    initialize: initialize,
+    set: set,
+    get: get,
+    unset: unset,
+    toObject: toObject,
     toTemplateReplacements: toObject,
-    keys:                   keys,
-    values:                 values,
-    index:                  index,
-    merge:                  merge,
-    update:                 update,
-    toQueryString:          toQueryString,
-    inspect:                inspect,
-    toJSON:                 toObject,
-    clone:                  clone
+    keys: keys,
+    values: values,
+    index: index,
+    merge: merge,
+    update: update,
+    toQueryString: toQueryString,
+    inspect: inspect,
+    toJSON: toObject,
+    clone: clone
   };
 })());
 
 Hash.from = $H;
+Object.extend(Hash.prototype, {
+  _each: function(iterator, context) {
+    var i = 0;
+    for (var key in this) {
+      var value = this[key];
+      if (key === "_object" || (value && value == this.__proto__[key]) || (value && value == Hash.prototype[key])) continue;
+
+      var pair = [key, value];
+      pair.key = key;
+      pair.value = value;
+      iterator.call(context, pair, i);
+      i++;
+    }
+  }
+});
